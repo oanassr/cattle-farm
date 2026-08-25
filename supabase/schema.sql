@@ -95,11 +95,13 @@ security definer
 set search_path = public
 as $$
 begin
+  -- الدور الافتراضي دائماً «بائع»؛ لا يُمنح دور أعلى من بيانات التسجيل
+  -- (يمنع منح الصلاحيات عبر التسجيل العام). المالك يرقّي الأدوار لاحقاً.
   insert into public.profiles (id, full_name, role)
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'full_name', new.email),
-    coalesce(new.raw_user_meta_data->>'role', 'seller')
+    'seller'
   )
   on conflict (id) do nothing;
   return new;

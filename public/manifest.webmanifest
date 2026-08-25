@@ -2,7 +2,8 @@
   "name": "مزرعتي — إدارة مزرعة الأبقار",
   "short_name": "مزرعتي",
   "description": "إدارة منصرفات وإيرادات مزرعة الأبقار",
-  "start_url": "/",
+  "start_url": ".",
+  "scope": ".",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f4f7f2",
@@ -11,7 +12,7 @@
   "dir": "rtl",
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
