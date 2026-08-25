@@ -111,6 +111,32 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- ---------- منع تصعيد الصلاحيات: لا يغيّر الدورَ إلا المالك ----------
+-- (يمنع أي مستخدم من ترقية نفسه؛ يسمح للمالك بتعديل أدوار الآخرين،
+--  ويسمح بالترقية اليدوية من SQL Editor لعدم وجود سياق مستخدم)
+create or replace function public.lock_role_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- يُحجب التغيير فقط إن كان الفاعل مستخدماً مسجّلاً وليس مالكاً.
+  -- في SQL Editor لا يوجد مستخدم (user_role() = NULL) فيُسمح بالترقية اليدوية.
+  if new.role is distinct from old.role
+     and public.user_role() is not null
+     and public.user_role() <> 'owner' then
+    new.role := old.role;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_lock_role on public.profiles;
+create trigger trg_lock_role
+  before update on public.profiles
+  for each row execute function public.lock_role_change();
+
 -- ============================================================
 --  سياسات الأمان (Row Level Security)
 -- ============================================================
