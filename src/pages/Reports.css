@@ -1,0 +1,23 @@
+.rep-h { font-size: 17px; margin-bottom: 14px; }
+
+.cat-legend { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.cat-row { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.cat-row .dot { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+.cat-row .cat-name { min-width: 130px; font-weight: 600; }
+.cat-row .cat-bar {
+  flex: 1; height: 8px; background: var(--line); border-radius: 6px; overflow: hidden; min-width: 40px;
+}
+.cat-row .cat-bar > span { display: block; height: 100%; border-radius: 6px; }
+.cat-row .cat-val { min-width: 90px; text-align: left; font-weight: 700; }
+
+/* ===== الطباعة ===== */
+@media print {
+  .topbar, .sidenav, .bottomnav, .no-print { display: none !important; }
+  .content { padding: 0 !important; max-width: 100% !important; }
+  body { background: #fff; }
+  .card { box-shadow: none; border: 1px solid #ddd; break-inside: avoid; }
+  .print-title { display: block !important; text-align: center; margin-bottom: 16px; }
+  .print-title h1 { font-size: 22px; }
+  .print-title p { color: #555; }
+  .page-head h1 { display: none; }
+}
