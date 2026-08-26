@@ -1,0 +1,26 @@
+name: Supabase Keepalive
+
+# يُبقي مشروع Supabase المجاني نشطاً (يُوقَف تلقائياً بعد 7 أيام خمول).
+# يعمل كل 3 أيام، ويمكن تشغيله يدوياً من تبويب Actions.
+
+on:
+  schedule:
+    - cron: '17 6 */3 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST
+        run: |
+          code=$(curl -sS -o /dev/null -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/units?select=name&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}")
+          echo "Supabase responded: HTTP $code"
+          if [ "$code" != "200" ]; then
+            echo "::warning::Unexpected status $code"
+          fi
