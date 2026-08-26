@@ -29,7 +29,7 @@ export default function Advances() {
       supabase.rpc('advance_balances'),
       supabase.from('profiles').select('id, full_name, role'),
       supabase.from('advances')
-        .select('*, person:person_id(full_name)')
+        .select('*')
         .gte('date', start).lt('date', end).order('date', { ascending: false }),
     ])
     const pmap = {}
@@ -133,7 +133,7 @@ export default function Advances() {
                     {rows.map((r) => (
                       <tr key={r.id}>
                         <td className="mono">{fmtDate(r.date)}</td>
-                        <td style={{ fontWeight: 600 }}>{r.person?.full_name || '—'}</td>
+                        <td style={{ fontWeight: 600 }}>{people[r.person_id]?.full_name || '—'}</td>
                         <td>
                           <span className={`badge badge-${r.type === 'advance' ? 'amber' : 'green'}`}>
                             {r.type === 'advance' ? '⬅️ سلفة' : '✅ تسوية'}
