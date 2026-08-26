@@ -4,12 +4,13 @@ import { ROLES } from '../lib/format'
 import './Layout.css'
 
 const NAV = [
-  { to: '/',         label: 'الرئيسية',   ic: '🏠', roles: ['owner', 'manager'] },
-  { to: '/revenues', label: 'الإيرادات',  ic: '💰', roles: ['owner', 'manager', 'seller'] },
-  { to: '/expenses', label: 'المنصرفات',  ic: '🧾', roles: ['owner', 'manager'] },
-  { to: '/milk',     label: 'الحليب',     ic: '🥛', roles: ['owner', 'manager'] },
-  { to: '/reports',  label: 'التقارير',   ic: '📊', roles: ['owner', 'manager'] },
-  { to: '/users',    label: 'المستخدمون', ic: '👥', roles: ['owner'] },
+  { to: '/',           label: 'الرئيسية',    ic: '🏠', roles: ['owner', 'manager'] },
+  { to: '/revenues',   label: 'الإيرادات',   ic: '💰', roles: ['owner', 'manager', 'seller'] },
+  { to: '/expenses',   label: 'المنصرفات',   ic: '🧾', roles: ['owner', 'manager'] },
+  { to: '/production', label: 'المنتجات',    ic: '🧀', roles: ['owner', 'manager'] },
+  { to: '/reports',    label: 'التقارير',    ic: '📊', roles: ['owner', 'manager'] },
+  { to: '/control',    label: 'لوحة التحكم', ic: '🛠️', roles: ['owner'] },
+  { to: '/users',      label: 'المستخدمون',  ic: '👥', roles: ['owner'] },
 ]
 
 export default function Layout() {

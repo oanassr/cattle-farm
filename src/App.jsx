@@ -7,9 +7,10 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Expenses from './pages/Expenses'
 import Revenues from './pages/Revenues'
-import Milk from './pages/Milk'
+import Production from './pages/Production'
 import Reports from './pages/Reports'
 import Users from './pages/Users'
+import ControlPanel from './pages/ControlPanel'
 
 function FullLoader() {
   return (
@@ -46,8 +47,10 @@ export default function App() {
         <Route index element={<Home />} />
         <Route path="expenses" element={<Guard roles={MG}><Expenses /></Guard>} />
         <Route path="revenues" element={<Revenues />} />
-        <Route path="milk" element={<Guard roles={MG}><Milk /></Guard>} />
+        <Route path="production" element={<Guard roles={MG}><Production /></Guard>} />
+        <Route path="milk" element={<Navigate to="/production" replace />} />
         <Route path="reports" element={<Guard roles={MG}><Reports /></Guard>} />
+        <Route path="control" element={<Guard roles={['owner']}><ControlPanel /></Guard>} />
         <Route path="users" element={<Guard roles={['owner']}><Users /></Guard>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

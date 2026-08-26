@@ -3,16 +3,18 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { PageHead, StatCard, EmptyState, Modal, Loader } from '../components/ui'
 import { fmtRiyal, fmtDate, fmtNum, todayISO, PAYMENT_METHODS } from '../lib/format'
+import { loadProducts, loadStockMap } from '../lib/catalog'
 
 const emptyForm = {
-  category_id: '', amount: '', quantity: '', unit: '',
+  product_id: '', amount: '', quantity: '',
   payment_method: 'cash', buyer_name: '', note: '', date: todayISO(),
 }
 
 export default function Revenues() {
   const { user, role } = useAuth()
   const isSeller = role === 'seller'
-  const [cats, setCats] = useState([])
+  const [products, setProducts] = useState([])
+  const [stock, setStock] = useState({})
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [month, setMonth] = useState(todayISO().slice(0, 7))
@@ -26,38 +28,56 @@ export default function Revenues() {
     const start = `${month}-01`
     const end = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 1)
       .toISOString().slice(0, 10)
-    const [{ data: c }, { data: r }] = await Promise.all([
-      supabase.from('revenue_categories').select('*').order('sort_order'),
+    const [p, s, { data: r }] = await Promise.all([
+      loadProducts(), loadStockMap(),
       supabase.from('revenues')
-        .select('*, revenue_categories(name, icon)')
+        .select('*, products:product_id(name, icon, unit, track_stock), revenue_categories(name, icon)')
         .gte('date', start).lt('date', end)
         .order('date', { ascending: false }),
     ])
-    setCats(c || [])
-    setRows(r || [])
-    setLoading(false)
+    setProducts(p); setStock(s); setRows(r || []); setLoading(false)
   }, [month])
 
   useEffect(() => { load() }, [load])
 
+  const sellables = products.filter((p) => p.is_active && p.kind !== 'packaging')
+  const selected = products.find((p) => p.id === form.product_id)
+
   const openAdd = () => { setForm({ ...emptyForm }); setEditId(null); setModal(true) }
   const openEdit = (r) => {
     setForm({
-      category_id: r.category_id || '', amount: r.amount, quantity: r.quantity ?? '',
-      unit: r.unit || '', payment_method: r.payment_method || 'cash',
+      product_id: r.product_id || '', amount: r.amount, quantity: r.quantity ?? '',
+      payment_method: r.payment_method || 'cash',
       buyer_name: r.buyer_name || '', note: r.note || '', date: r.date,
     })
     setEditId(r.id); setModal(true)
+  }
+
+  // اختيار المنتج: يملأ السعر المقترح عند وجود كمية
+  const onPickProduct = (id) => {
+    const p = products.find((x) => x.id === id)
+    setForm((f) => {
+      const qty = f.quantity === '' ? '' : Number(f.quantity)
+      const amount = p?.sale_price != null && qty !== '' ? String(p.sale_price * qty) : f.amount
+      return { ...f, product_id: id, amount }
+    })
+  }
+  const onQty = (v) => {
+    setForm((f) => {
+      const amount = selected?.sale_price != null && v !== '' ? String(selected.sale_price * Number(v)) : f.amount
+      return { ...f, quantity: v, amount }
+    })
   }
 
   const save = async (e) => {
     e.preventDefault()
     setSaving(true)
     const payload = {
-      category_id: form.category_id || null,
+      product_id: form.product_id || null,
+      category_id: null,
       amount: Number(form.amount),
       quantity: form.quantity === '' ? null : Number(form.quantity),
-      unit: form.unit || null,
+      unit: selected?.unit || null,
       payment_method: form.payment_method,
       buyer_name: form.buyer_name || null,
       note: form.note || null,
@@ -82,6 +102,8 @@ export default function Revenues() {
   }
 
   const total = rows.reduce((s, r) => s + Number(r.amount), 0)
+  const avail = selected?.track_stock ? (stock[selected.id] ?? 0) : null
+  const overStock = avail != null && form.quantity !== '' && Number(form.quantity) > avail
 
   return (
     <div>
@@ -108,31 +130,34 @@ export default function Revenues() {
             <table className="data">
               <thead>
                 <tr>
-                  <th>التاريخ</th><th>الفئة</th><th>المبلغ</th>
+                  <th>التاريخ</th><th>الصنف</th><th>المبلغ</th>
                   <th>الكمية</th><th>المشتري</th><th>الدفع</th><th></th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id}>
-                    <td className="mono">{fmtDate(r.date)}</td>
-                    <td>
-                      <span className="badge badge-green">
-                        {r.revenue_categories?.icon} {r.revenue_categories?.name || 'غير مصنّف'}
-                      </span>
-                    </td>
-                    <td className="mono text-green" style={{ fontWeight: 700 }}>{fmtRiyal(r.amount)}</td>
-                    <td className="mono muted">{r.quantity ? `${fmtNum(r.quantity)} ${r.unit || ''}` : '—'}</td>
-                    <td className="muted">{r.buyer_name || '—'}</td>
-                    <td className="muted">{PAYMENT_METHODS[r.payment_method]}</td>
-                    <td>
-                      <div className="row" style={{ gap: 6 }}>
-                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(r)}>تعديل</button>
-                        <button className="btn btn-danger btn-sm" onClick={() => remove(r.id)}>حذف</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {rows.map((r) => {
+                  const item = r.products || r.revenue_categories
+                  return (
+                    <tr key={r.id}>
+                      <td className="mono">{fmtDate(r.date)}</td>
+                      <td>
+                        <span className="badge badge-green">
+                          {item?.icon} {item?.name || 'غير مصنّف'}
+                        </span>
+                      </td>
+                      <td className="mono text-green" style={{ fontWeight: 700 }}>{fmtRiyal(r.amount)}</td>
+                      <td className="mono muted">{r.quantity ? `${fmtNum(r.quantity)} ${r.products?.unit || r.unit || ''}` : '—'}</td>
+                      <td className="muted">{r.buyer_name || '—'}</td>
+                      <td className="muted">{PAYMENT_METHODS[r.payment_method]}</td>
+                      <td>
+                        <div className="row" style={{ gap: 6 }}>
+                          <button className="btn btn-ghost btn-sm" onClick={() => openEdit(r)}>تعديل</button>
+                          <button className="btn btn-danger btn-sm" onClick={() => remove(r.id)}>حذف</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -143,48 +168,57 @@ export default function Revenues() {
         <Modal title={editId ? 'تعديل إيراد' : 'تسجيل مبيع'} onClose={() => setModal(false)}>
           <form onSubmit={save}>
             <div className="field">
-              <label>الفئة</label>
-              <select className="select" required value={form.category_id}
-                onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
-                <option value="">— اختر الفئة —</option>
-                {cats.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+              <label>الصنف</label>
+              <select className="select" required value={form.product_id}
+                onChange={(e) => onPickProduct(e.target.value)}>
+                <option value="">— اختر الصنف —</option>
+                {sellables.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.icon} {p.name}{p.track_stock ? ` — متاح ${fmtNum(stock[p.id] ?? 0)} ${p.unit || ''}` : ''}
+                  </option>
+                ))}
               </select>
+              {selected?.sale_price != null && (
+                <div className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+                  💡 السعر الافتراضي: {fmtRiyal(selected.sale_price)} / {selected.unit || 'وحدة'}
+                </div>
+              )}
             </div>
             <div className="row row-wrap" style={{ gap: 12 }}>
-              <div className="field" style={{ flex: 1, minWidth: 140 }}>
-                <label>المبلغ (﷼)</label>
+              <div className="field" style={{ flex: 1, minWidth: 120 }}>
+                <label>الكمية {selected?.unit ? `(${selected.unit})` : ''}</label>
+                <input className="input" type="number" min="0" step="0.01" dir="ltr"
+                  value={form.quantity} onChange={(e) => onQty(e.target.value)} />
+                {overStock && (
+                  <div style={{ color: 'var(--red-600)', fontSize: 12.5, marginTop: 6, fontWeight: 600 }}>
+                    ⚠️ الكمية تتجاوز المتاح ({fmtNum(avail)} {selected.unit})
+                  </div>
+                )}
+              </div>
+              <div className="field" style={{ flex: 1, minWidth: 120 }}>
+                <label>المبلغ الإجمالي (﷼)</label>
                 <input className="input" type="number" min="0" step="0.01" required dir="ltr"
                   value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
               </div>
-              <div className="field" style={{ flex: 1, minWidth: 140 }}>
+              <div className="field" style={{ flex: 1, minWidth: 120 }}>
                 <label>التاريخ</label>
                 <input className="input" type="date" required dir="ltr"
                   value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
               </div>
             </div>
             <div className="row row-wrap" style={{ gap: 12 }}>
-              <div className="field" style={{ flex: 1, minWidth: 120 }}>
-                <label>الكمية (اختياري)</label>
-                <input className="input" type="number" min="0" step="0.01" dir="ltr"
-                  value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
-              </div>
-              <div className="field" style={{ flex: 1, minWidth: 120 }}>
-                <label>الوحدة</label>
-                <input className="input" placeholder="لتر / رأس / كجم"
-                  value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
-              </div>
-              <div className="field" style={{ flex: 1, minWidth: 120 }}>
+              <div className="field" style={{ flex: 1, minWidth: 140 }}>
                 <label>طريقة الدفع</label>
                 <select className="select" value={form.payment_method}
                   onChange={(e) => setForm({ ...form, payment_method: e.target.value })}>
                   {Object.entries(PAYMENT_METHODS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </div>
-            </div>
-            <div className="field">
-              <label>اسم المشتري (اختياري)</label>
-              <input className="input" value={form.buyer_name}
-                onChange={(e) => setForm({ ...form, buyer_name: e.target.value })} />
+              <div className="field" style={{ flex: 1, minWidth: 140 }}>
+                <label>اسم المشتري (اختياري)</label>
+                <input className="input" value={form.buyer_name}
+                  onChange={(e) => setForm({ ...form, buyer_name: e.target.value })} />
+              </div>
             </div>
             <div className="field">
               <label>ملاحظة (اختياري)</label>

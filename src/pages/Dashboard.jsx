@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { PageHead, StatCard, Loader, EmptyState } from '../components/ui'
-import { fmtRiyal, fmtDate, fmtNum, monthName, CHART_COLORS } from '../lib/format'
+import { fmtRiyal, fmtNum, monthName, CHART_COLORS } from '../lib/format'
+import { loadProducts, loadStockMap } from '../lib/catalog'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts'
@@ -26,10 +27,12 @@ export default function Dashboard() {
       setLoading(true)
       const from = iso(monthStart(5))          // آخر 6 أشهر
       const monthFrom = iso(monthStart(0))
-      const [{ data: exp }, { data: rev }, { data: milk }] = await Promise.all([
+      const [{ data: exp }, { data: rev }, { data: prod }, products, stockMap] = await Promise.all([
         supabase.from('expenses').select('amount, date').gte('date', from),
         supabase.from('revenues').select('amount, date').gte('date', from),
-        supabase.from('milk_production').select('quantity_liters, date').gte('date', monthFrom),
+        supabase.from('production').select('quantity, date, products:product_id(name)').gte('date', monthFrom),
+        loadProducts(),
+        loadStockMap(),
       ])
 
       // تجميع شهري
@@ -45,11 +48,18 @@ export default function Dashboard() {
       const monthKey = monthFrom.slice(0, 7)
       const mRev = (rev || []).filter((r) => r.date.slice(0, 7) === monthKey).reduce((s, r) => s + Number(r.amount), 0)
       const mExp = (exp || []).filter((r) => r.date.slice(0, 7) === monthKey).reduce((s, r) => s + Number(r.amount), 0)
-      const mMilk = (milk || []).reduce((s, r) => s + Number(r.quantity_liters), 0)
+      const mMilk = (prod || [])
+        .filter((r) => r.products?.name === 'حليب')
+        .reduce((s, r) => s + Number(r.quantity), 0)
+
+      // مخزون المنتجات المتتبَّعة
+      const stockRows = (products || [])
+        .filter((p) => p.track_stock)
+        .map((p) => ({ ...p, stock: stockMap[p.id] ?? 0 }))
 
       setData({
         chart: Object.values(buckets),
-        mRev, mExp, mNet: mRev - mExp, mMilk,
+        mRev, mExp, mNet: mRev - mExp, mMilk, stockRows,
       })
       setLoading(false)
     })()
@@ -72,6 +82,26 @@ export default function Dashboard() {
           sub={net >= 0 ? 'المزرعة رابحة هذا الشهر' : 'المنصرفات تجاوزت الإيرادات'} />
         <StatCard icon="🥛" label="إنتاج الحليب" value={`${fmtNum(data.mMilk)} لتر`} tone="blue" isMoney={false} />
       </div>
+
+      {data.stockRows.length > 0 && (
+        <div className="card card-pad" style={{ marginBottom: 20 }}>
+          <div className="row between center" style={{ marginBottom: 12 }}>
+            <h3 style={{ fontSize: 17 }}>📦 المخزون الحالي</h3>
+            <span className="muted" style={{ fontSize: 13 }}>المتاح من المنتجات ومواد التعبئة</span>
+          </div>
+          <div className="stock-grid">
+            {data.stockRows.map((p) => {
+              const low = p.stock <= 0
+              return (
+                <div key={p.id} className={`stock-chip ${low ? 'low' : ''}`}>
+                  <span className="sc-name">{p.icon} {p.name}</span>
+                  <span className="sc-val mono">{fmtNum(p.stock)} <small style={{ fontSize: 12, fontWeight: 600 }}>{p.unit}</small></span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="card card-pad">
         <h3 style={{ fontSize: 17, marginBottom: 4 }}>الإيرادات مقابل المنصرفات</h3>

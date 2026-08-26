@@ -25,14 +25,14 @@ export default function Reports() {
     const { from, to } = range
     const [exp, rev, milk] = await Promise.all([
       supabase.from('expenses').select('amount, date, expense_categories(name, icon)').gte('date', from).lte('date', to),
-      supabase.from('revenues').select('amount, date, revenue_categories(name, icon)').gte('date', from).lte('date', to),
-      supabase.from('milk_production').select('quantity_liters, date').gte('date', from).lte('date', to),
+      supabase.from('revenues').select('amount, date, products:product_id(name, icon), revenue_categories(name, icon)').gte('date', from).lte('date', to),
+      supabase.from('production').select('quantity, date, products:product_id(name)').gte('date', from).lte('date', to),
     ])
     const E = exp.data || [], R = rev.data || [], M = milk.data || []
 
     const totalExp = E.reduce((s, r) => s + Number(r.amount), 0)
     const totalRev = R.reduce((s, r) => s + Number(r.amount), 0)
-    const totalMilk = M.reduce((s, r) => s + Number(r.quantity_liters), 0)
+    const totalMilk = M.filter((r) => r.products?.name === 'حليب').reduce((s, r) => s + Number(r.quantity), 0)
     const net = totalRev - totalExp
     const margin = totalRev ? (net / totalRev) * 100 : 0
     const costPerLiter = totalMilk ? totalExp / totalMilk : 0
@@ -59,7 +59,16 @@ export default function Reports() {
       return Object.values(g).sort((a, b) => b.value - a.value)
     }
     const expByCat = groupBy(E, 'expense_categories')
-    const revByCat = groupBy(R, 'revenue_categories')
+    // الإيرادات حسب الصنف (المنتج أولاً، ثم الفئة القديمة للبيانات السابقة)
+    const revGroups = {}
+    R.forEach((r) => {
+      const src = r.products || r.revenue_categories
+      const name = src?.name || 'غير مصنّف'
+      const icon = src?.icon || ''
+      revGroups[name] = revGroups[name] || { name, icon, value: 0 }
+      revGroups[name].value += Number(r.amount)
+    })
+    const revByCat = Object.values(revGroups).sort((a, b) => b.value - a.value)
 
     setRep({
       totalExp, totalRev, totalMilk, net, margin, costPerLiter,

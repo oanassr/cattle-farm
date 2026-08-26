@@ -137,5 +137,30 @@ table.data tbody tr:hover { background: var(--green-50); }
 .fade-in { animation: fadeIn .35s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
+/* ---------- شريط تبويبات (segmented) ---------- */
+.seg {
+  display: inline-flex; flex-wrap: wrap; gap: 4px; padding: 4px;
+  background: var(--green-50); border: 1px solid var(--line); border-radius: 12px;
+}
+.seg-btn {
+  border: none; background: transparent; color: var(--muted);
+  font-weight: 700; font-size: 14px; padding: 9px 16px; border-radius: 9px;
+  display: inline-flex; align-items: center; gap: 6px; transition: .15s;
+}
+.seg-btn:hover { color: var(--green-700); }
+.seg-btn.active { background: #fff; color: var(--green-900); box-shadow: var(--shadow-sm); }
+.seg-sm .seg-btn { padding: 7px 12px; font-size: 13px; }
+
+/* ---------- بطاقات مخزون مصغّرة ---------- */
+.stock-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.stock-chip {
+  border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 12px 14px;
+  background: #fff; display: flex; flex-direction: column; gap: 3px;
+}
+.stock-chip .sc-name { font-size: 13px; font-weight: 600; color: var(--muted); }
+.stock-chip .sc-val { font-size: 20px; font-weight: 800; }
+.stock-chip.low { border-color: var(--red-100); background: #fff7f7; }
+.stock-chip.low .sc-val { color: var(--red-600); }
+
 ::-webkit-scrollbar { height: 8px; width: 8px; }
 ::-webkit-scrollbar-thumb { background: #cdd6cd; border-radius: 8px; }

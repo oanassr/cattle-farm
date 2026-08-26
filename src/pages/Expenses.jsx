@@ -3,15 +3,18 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { PageHead, StatCard, EmptyState, Modal, Loader } from '../components/ui'
 import { fmtRiyal, fmtDate, fmtNum, todayISO, PAYMENT_METHODS } from '../lib/format'
+import { loadProducts, loadUnits } from '../lib/catalog'
 
 const emptyForm = {
-  category_id: '', amount: '', quantity: '', unit: '',
+  category_id: '', product_id: '', amount: '', quantity: '', unit: '',
   payment_method: 'cash', note: '', date: todayISO(),
 }
 
 export default function Expenses() {
   const { user } = useAuth()
   const [cats, setCats] = useState([])
+  const [units, setUnits] = useState([])
+  const [packagings, setPackagings] = useState([])
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [month, setMonth] = useState(todayISO().slice(0, 7))
@@ -25,14 +28,17 @@ export default function Expenses() {
     const start = `${month}-01`
     const end = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 1)
       .toISOString().slice(0, 10)
-    const [{ data: c }, { data: e }] = await Promise.all([
+    const [{ data: c }, u, prods, { data: e }] = await Promise.all([
       supabase.from('expense_categories').select('*').order('sort_order'),
+      loadUnits(), loadProducts(),
       supabase.from('expenses')
-        .select('*, expense_categories(name, icon)')
+        .select('*, expense_categories(name, icon), products:product_id(name, icon)')
         .gte('date', start).lt('date', end)
         .order('date', { ascending: false }),
     ])
     setCats(c || [])
+    setUnits(u)
+    setPackagings(prods.filter((p) => p.kind === 'packaging' && p.is_active))
     setRows(e || [])
     setLoading(false)
   }, [month])
@@ -42,11 +48,17 @@ export default function Expenses() {
   const openAdd = () => { setForm({ ...emptyForm }); setEditId(null); setModal(true) }
   const openEdit = (r) => {
     setForm({
-      category_id: r.category_id || '', amount: r.amount, quantity: r.quantity ?? '',
-      unit: r.unit || '', payment_method: r.payment_method || 'cash',
+      category_id: r.category_id || '', product_id: r.product_id || '', amount: r.amount,
+      quantity: r.quantity ?? '', unit: r.unit || '', payment_method: r.payment_method || 'cash',
       note: r.note || '', date: r.date,
     })
     setEditId(r.id); setModal(true)
+  }
+
+  // اختيار صنف تعبئة: يضبط الوحدة تلقائياً
+  const onPickPackaging = (id) => {
+    const p = packagings.find((x) => x.id === id)
+    setForm((f) => ({ ...f, product_id: id, unit: p?.unit || f.unit }))
   }
 
   const save = async (e) => {
@@ -54,6 +66,7 @@ export default function Expenses() {
     setSaving(true)
     const payload = {
       category_id: form.category_id || null,
+      product_id: form.product_id || null,
       amount: Number(form.amount),
       quantity: form.quantity === '' ? null : Number(form.quantity),
       unit: form.unit || null,
@@ -105,7 +118,7 @@ export default function Expenses() {
               <thead>
                 <tr>
                   <th>التاريخ</th><th>الفئة</th><th>المبلغ</th>
-                  <th>الكمية</th><th>الدفع</th><th>ملاحظة</th><th></th>
+                  <th>الكمية</th><th>مخزون</th><th>الدفع</th><th></th>
                 </tr>
               </thead>
               <tbody>
@@ -119,8 +132,8 @@ export default function Expenses() {
                     </td>
                     <td className="mono text-red" style={{ fontWeight: 700 }}>{fmtRiyal(r.amount)}</td>
                     <td className="mono muted">{r.quantity ? `${fmtNum(r.quantity)} ${r.unit || ''}` : '—'}</td>
+                    <td className="muted">{r.products ? <span className="badge badge-blue">{r.products.icon} {r.products.name}</span> : '—'}</td>
                     <td className="muted">{PAYMENT_METHODS[r.payment_method]}</td>
-                    <td className="muted" style={{ maxWidth: 180, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.note || '—'}</td>
                     <td>
                       <div className="row" style={{ gap: 6 }}>
                         <button className="btn btn-ghost btn-sm" onClick={() => openEdit(r)}>تعديل</button>
@@ -166,8 +179,11 @@ export default function Expenses() {
               </div>
               <div className="field" style={{ flex: 1, minWidth: 120 }}>
                 <label>الوحدة</label>
-                <input className="input" placeholder="كيس / كجم / لتر"
-                  value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
+                <select className="select" value={form.unit}
+                  onChange={(e) => setForm({ ...form, unit: e.target.value })}>
+                  <option value="">— بلا وحدة —</option>
+                  {units.map((u) => <option key={u.id} value={u.name}>{u.name}</option>)}
+                </select>
               </div>
               <div className="field" style={{ flex: 1, minWidth: 120 }}>
                 <label>طريقة الدفع</label>
@@ -177,6 +193,25 @@ export default function Expenses() {
                 </select>
               </div>
             </div>
+
+            {packagings.length > 0 && (
+              <div className="card card-pad" style={{ background: 'var(--green-50)', marginBottom: 16 }}>
+                <label style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, display: 'block' }}>
+                  📦 شراء مخزون تعبئة (اختياري) — يُضاف للكمية أعلاه إلى المخزون
+                </label>
+                <select className="select" value={form.product_id}
+                  onChange={(e) => onPickPackaging(e.target.value)}>
+                  <option value="">— ليس شراء مخزون —</option>
+                  {packagings.map((p) => <option key={p.id} value={p.id}>{p.icon} {p.name} ({p.unit || ''})</option>)}
+                </select>
+                {form.product_id && (
+                  <div className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>
+                    ℹ️ سيُضاف <b>{form.quantity || 0} {form.unit}</b> إلى مخزون هذا الصنف.
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="field">
               <label>ملاحظة (اختياري)</label>
               <textarea className="input" value={form.note}
