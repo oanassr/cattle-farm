@@ -7,7 +7,7 @@ import { loadProducts, loadUnits } from '../lib/catalog'
 
 const emptyForm = {
   category_id: '', product_id: '', amount: '', quantity: '', unit: '',
-  payment_method: 'cash', note: '', date: todayISO(),
+  payment_method: 'cash', note: '', date: todayISO(), from_advance: false,
 }
 
 export default function Expenses() {
@@ -50,7 +50,7 @@ export default function Expenses() {
     setForm({
       category_id: r.category_id || '', product_id: r.product_id || '', amount: r.amount,
       quantity: r.quantity ?? '', unit: r.unit || '', payment_method: r.payment_method || 'cash',
-      note: r.note || '', date: r.date,
+      note: r.note || '', date: r.date, from_advance: !!r.from_advance,
     })
     setEditId(r.id); setModal(true)
   }
@@ -73,6 +73,7 @@ export default function Expenses() {
       payment_method: form.payment_method,
       note: form.note || null,
       date: form.date,
+      from_advance: form.from_advance,
     }
     let error
     if (editId) {
@@ -133,7 +134,10 @@ export default function Expenses() {
                     <td className="mono text-red" style={{ fontWeight: 700 }}>{fmtRiyal(r.amount)}</td>
                     <td className="mono muted">{r.quantity ? `${fmtNum(r.quantity)} ${r.unit || ''}` : '—'}</td>
                     <td className="muted">{r.products ? <span className="badge badge-blue">{r.products.icon} {r.products.name}</span> : '—'}</td>
-                    <td className="muted">{PAYMENT_METHODS[r.payment_method]}</td>
+                    <td className="muted">
+                      {PAYMENT_METHODS[r.payment_method]}
+                      {r.from_advance && <span className="badge badge-amber" style={{ marginRight: 6 }}>💵 سلفة</span>}
+                    </td>
                     <td>
                       <div className="row" style={{ gap: 6 }}>
                         <button className="btn btn-ghost btn-sm" onClick={() => openEdit(r)}>تعديل</button>
@@ -212,6 +216,11 @@ export default function Expenses() {
               </div>
             )}
 
+            <label className="row center" style={{ gap: 8, cursor: 'pointer', marginBottom: 14, padding: '10px 12px', background: 'var(--earth-100)', borderRadius: 'var(--radius-sm)' }}>
+              <input type="checkbox" checked={form.from_advance}
+                onChange={(e) => setForm({ ...form, from_advance: e.target.checked })} />
+              <span style={{ fontSize: 14, fontWeight: 600 }}>💵 مدفوع من سلفتي (يُخصم من رصيد السلفة)</span>
+            </label>
             <div className="field">
               <label>ملاحظة (اختياري)</label>
               <textarea className="input" value={form.note}

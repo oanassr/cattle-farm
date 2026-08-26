@@ -15,6 +15,7 @@ export default function Revenues() {
   const isSeller = role === 'seller'
   const [products, setProducts] = useState([])
   const [stock, setStock] = useState({})
+  const [promos, setPromos] = useState([])
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [month, setMonth] = useState(todayISO().slice(0, 7))
@@ -28,20 +29,30 @@ export default function Revenues() {
     const start = `${month}-01`
     const end = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 1)
       .toISOString().slice(0, 10)
-    const [p, s, { data: r }] = await Promise.all([
+    const [p, s, { data: pr }, { data: r }] = await Promise.all([
       loadProducts(), loadStockMap(),
+      supabase.from('promotions').select('*').eq('is_active', true),
       supabase.from('revenues')
         .select('*, products:product_id(name, icon, unit, track_stock), revenue_categories(name, icon)')
         .gte('date', start).lt('date', end)
         .order('date', { ascending: false }),
     ])
-    setProducts(p); setStock(s); setRows(r || []); setLoading(false)
+    setProducts(p); setStock(s); setPromos(pr || []); setRows(r || []); setLoading(false)
   }, [month])
 
   useEffect(() => { load() }, [load])
 
   const sellables = products.filter((p) => p.is_active && p.kind !== 'packaging')
   const selected = products.find((p) => p.id === form.product_id)
+
+  // السعر الفعّال للوحدة (يراعي العروض حسب التاريخ)
+  const unitPrice = (pid, date) => {
+    const promo = promos.find((x) => x.product_id === pid && date >= x.start_date && date <= x.end_date)
+    if (promo) return { price: Number(promo.promo_price), promo: true }
+    const p = products.find((x) => x.id === pid)
+    return { price: p?.sale_price != null ? Number(p.sale_price) : null, promo: false }
+  }
+  const priceInfo = form.product_id ? unitPrice(form.product_id, form.date) : { price: null, promo: false }
 
   const openAdd = () => { setForm({ ...emptyForm }); setEditId(null); setModal(true) }
   const openEdit = (r) => {
@@ -53,21 +64,14 @@ export default function Revenues() {
     setEditId(r.id); setModal(true)
   }
 
-  // اختيار المنتج: يملأ السعر المقترح عند وجود كمية
-  const onPickProduct = (id) => {
-    const p = products.find((x) => x.id === id)
-    setForm((f) => {
-      const qty = f.quantity === '' ? '' : Number(f.quantity)
-      const amount = p?.sale_price != null && qty !== '' ? String(p.sale_price * qty) : f.amount
-      return { ...f, product_id: id, amount }
-    })
+  // حساب المبلغ من السعر الفعّال (العرض أو العادي)
+  const calcAmount = (pid, date, qty) => {
+    const { price } = unitPrice(pid, date)
+    return price != null && qty !== '' && qty != null ? String(price * Number(qty)) : null
   }
-  const onQty = (v) => {
-    setForm((f) => {
-      const amount = selected?.sale_price != null && v !== '' ? String(selected.sale_price * Number(v)) : f.amount
-      return { ...f, quantity: v, amount }
-    })
-  }
+  const onPickProduct = (id) => setForm((f) => ({ ...f, product_id: id, amount: calcAmount(id, f.date, f.quantity) ?? f.amount }))
+  const onQty = (v) => setForm((f) => ({ ...f, quantity: v, amount: calcAmount(f.product_id, f.date, v) ?? f.amount }))
+  const onDate = (v) => setForm((f) => ({ ...f, date: v, amount: calcAmount(f.product_id, v, f.quantity) ?? f.amount }))
 
   const save = async (e) => {
     e.preventDefault()
@@ -178,9 +182,16 @@ export default function Revenues() {
                   </option>
                 ))}
               </select>
-              {selected?.sale_price != null && (
-                <div className="muted" style={{ fontSize: 12.5, marginTop: 6 }}>
-                  💡 السعر الافتراضي: {fmtRiyal(selected.sale_price)} / {selected.unit || 'وحدة'}
+              {priceInfo.price != null && (
+                <div style={{ fontSize: 12.5, marginTop: 6 }}>
+                  {priceInfo.promo ? (
+                    <span style={{ color: 'var(--green-700)', fontWeight: 700 }}>
+                      🎉 عرض ساري: {fmtRiyal(priceInfo.price)} / {selected?.unit || 'وحدة'}
+                      {selected?.sale_price != null && <span className="muted" style={{ fontWeight: 400 }}> (بدل {fmtRiyal(selected.sale_price)})</span>}
+                    </span>
+                  ) : (
+                    <span className="muted">💡 السعر: {fmtRiyal(priceInfo.price)} / {selected?.unit || 'وحدة'}</span>
+                  )}
                 </div>
               )}
             </div>
@@ -203,7 +214,7 @@ export default function Revenues() {
               <div className="field" style={{ flex: 1, minWidth: 120 }}>
                 <label>التاريخ</label>
                 <input className="input" type="date" required dir="ltr"
-                  value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+                  value={form.date} onChange={(e) => onDate(e.target.value)} />
               </div>
             </div>
             <div className="row row-wrap" style={{ gap: 12 }}>

@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard'
 import Expenses from './pages/Expenses'
 import Revenues from './pages/Revenues'
 import Production from './pages/Production'
+import Advances from './pages/Advances'
 import Reports from './pages/Reports'
 import Users from './pages/Users'
 import ControlPanel from './pages/ControlPanel'
@@ -48,6 +49,7 @@ export default function App() {
         <Route path="expenses" element={<Guard roles={MG}><Expenses /></Guard>} />
         <Route path="revenues" element={<Revenues />} />
         <Route path="production" element={<Guard roles={MG}><Production /></Guard>} />
+        <Route path="advances" element={<Guard roles={MG}><Advances /></Guard>} />
         <Route path="milk" element={<Navigate to="/production" replace />} />
         <Route path="reports" element={<Guard roles={MG}><Reports /></Guard>} />
         <Route path="control" element={<Guard roles={['owner']}><ControlPanel /></Guard>} />

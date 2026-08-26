@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { PageHead, EmptyState, Modal, Loader } from '../components/ui'
-import { fmtNum, fmtRiyal } from '../lib/format'
+import { fmtNum, fmtRiyal, fmtDate, todayISO } from '../lib/format'
 import { KINDS, loadProducts, loadUnits, loadStockMap } from '../lib/catalog'
 
 const TABS = [
   { key: 'products', label: 'الأصناف والمنتجات', icon: '🧀' },
+  { key: 'promos', label: 'العروض', icon: '🎉' },
   { key: 'expenses', label: 'فئات المنصرفات', icon: '🧾' },
   { key: 'units', label: 'وحدات القياس', icon: '📏' },
 ]
@@ -32,6 +33,7 @@ export default function ControlPanel() {
         ))}
       </div>
       {tab === 'products' && <ProductsTab />}
+      {tab === 'promos' && <PromotionsTab />}
       {tab === 'expenses' && <ExpenseCatsTab />}
       {tab === 'units' && <UnitsTab />}
     </div>
@@ -218,6 +220,148 @@ function ProductsTab() {
             </label>
             <button className="btn btn-primary btn-block" disabled={saving}>
               {saving ? <span className="spinner" /> : (editId ? 'حفظ التعديل' : 'إضافة الصنف')}
+            </button>
+          </form>
+        </Modal>
+      )}
+    </div>
+  )
+}
+
+/* ============================ العروض السعرية ============================ */
+const emptyPromo = { product_id: '', promo_price: '', start_date: todayISO(), end_date: todayISO(), is_active: true, note: '' }
+
+function promoStatus(p) {
+  const today = todayISO()
+  if (!p.is_active) return { label: 'موقوف', color: 'red' }
+  if (today < p.start_date) return { label: 'قادم', color: 'blue' }
+  if (today > p.end_date) return { label: 'منتهٍ', color: 'red' }
+  return { label: 'ساري', color: 'green' }
+}
+
+function PromotionsTab() {
+  const [rows, setRows] = useState([])
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [modal, setModal] = useState(false)
+  const [form, setForm] = useState(emptyPromo)
+  const [editId, setEditId] = useState(null)
+  const [saving, setSaving] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const [p, { data }] = await Promise.all([
+      loadProducts(),
+      supabase.from('promotions').select('*, products:product_id(name, icon, unit, sale_price)').order('start_date', { ascending: false }),
+    ])
+    setProducts(p.filter((x) => x.kind !== 'packaging'))
+    setRows(data || []); setLoading(false)
+  }, [])
+  useEffect(() => { load() }, [load])
+
+  const openAdd = () => { setForm({ ...emptyPromo }); setEditId(null); setModal(true) }
+  const openEdit = (r) => {
+    setForm({
+      product_id: r.product_id, promo_price: r.promo_price, start_date: r.start_date,
+      end_date: r.end_date, is_active: r.is_active, note: r.note || '',
+    })
+    setEditId(r.id); setModal(true)
+  }
+
+  const save = async (e) => {
+    e.preventDefault(); setSaving(true)
+    if (form.end_date < form.start_date) { setSaving(false); alert('تاريخ النهاية قبل البداية.'); return }
+    const payload = {
+      product_id: form.product_id, promo_price: Number(form.promo_price),
+      start_date: form.start_date, end_date: form.end_date, is_active: form.is_active, note: form.note || null,
+    }
+    let error
+    if (editId) ({ error } = await supabase.from('promotions').update(payload).eq('id', editId))
+    else ({ error } = await supabase.from('promotions').insert(payload))
+    setSaving(false)
+    if (error) { alert('خطأ أثناء الحفظ: ' + error.message); return }
+    setModal(false); load()
+  }
+  const remove = async (id) => {
+    if (!confirm('حذف هذا العرض؟')) return
+    await supabase.from('promotions').delete().eq('id', id); load()
+  }
+
+  const sel = products.find((p) => p.id === form.product_id)
+
+  return (
+    <div>
+      <div className="row between center" style={{ marginBottom: 14 }}>
+        <p className="muted" style={{ fontSize: 13.5, margin: 0 }}>سعر ترويجي يُطبَّق تلقائياً في المبيعات خلال الفترة المحددة.</p>
+        <button className="btn btn-primary" onClick={openAdd} disabled={products.length === 0}>＋ عرض جديد</button>
+      </div>
+      <div className="card">
+        {loading ? <Loader /> : rows.length === 0 ? (
+          <EmptyState icon="🎉" title="لا توجد عروض" hint="أضف عرضاً سعرياً لمنتج خلال فترة" />
+        ) : (
+          <div className="table-wrap">
+            <table className="data">
+              <thead><tr><th>المنتج</th><th>السعر العادي</th><th>سعر العرض</th><th>الفترة</th><th>الحالة</th><th></th></tr></thead>
+              <tbody>
+                {rows.map((r) => {
+                  const st = promoStatus(r)
+                  return (
+                    <tr key={r.id}>
+                      <td style={{ fontWeight: 600 }}>{r.products?.icon} {r.products?.name}</td>
+                      <td className="mono muted">{r.products?.sale_price != null ? fmtRiyal(r.products.sale_price) : '—'}</td>
+                      <td className="mono text-green" style={{ fontWeight: 700 }}>{fmtRiyal(r.promo_price)}</td>
+                      <td className="mono muted" style={{ fontSize: 13 }}>{fmtDate(r.start_date)} ← {fmtDate(r.end_date)}</td>
+                      <td><span className={`badge badge-${st.color}`}>{st.label}</span></td>
+                      <td>
+                        <div className="row" style={{ gap: 6 }}>
+                          <button className="btn btn-ghost btn-sm" onClick={() => openEdit(r)}>تعديل</button>
+                          <button className="btn btn-danger btn-sm" onClick={() => remove(r.id)}>حذف</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {modal && (
+        <Modal title={editId ? 'تعديل عرض' : 'عرض سعري جديد'} onClose={() => setModal(false)}>
+          <form onSubmit={save}>
+            <div className="field">
+              <label>المنتج</label>
+              <select className="select" required value={form.product_id}
+                onChange={(e) => setForm({ ...form, product_id: e.target.value })}>
+                <option value="">— اختر المنتج —</option>
+                {products.map((p) => <option key={p.id} value={p.id}>{p.icon} {p.name}{p.sale_price != null ? ` (عادةً ${fmtNum(p.sale_price)})` : ''}</option>)}
+              </select>
+            </div>
+            <div className="field">
+              <label>سعر العرض (﷼){sel?.unit ? ` / ${sel.unit}` : ''}</label>
+              <input className="input" type="number" min="0" step="0.01" required dir="ltr"
+                value={form.promo_price} onChange={(e) => setForm({ ...form, promo_price: e.target.value })} />
+            </div>
+            <div className="row row-wrap" style={{ gap: 12 }}>
+              <div className="field" style={{ flex: 1, minWidth: 140 }}>
+                <label>من تاريخ</label>
+                <input className="input" type="date" required dir="ltr"
+                  value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} />
+              </div>
+              <div className="field" style={{ flex: 1, minWidth: 140 }}>
+                <label>إلى تاريخ</label>
+                <input className="input" type="date" required dir="ltr"
+                  value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} />
+              </div>
+            </div>
+            <label className="row center" style={{ gap: 8, cursor: 'pointer', marginBottom: 12 }}>
+              <input type="checkbox" checked={form.is_active}
+                onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />
+              <span>مُفعّل</span>
+            </label>
+            <button className="btn btn-primary btn-block" disabled={saving}>
+              {saving ? <span className="spinner" /> : (editId ? 'حفظ التعديل' : 'إضافة العرض')}
             </button>
           </form>
         </Modal>
