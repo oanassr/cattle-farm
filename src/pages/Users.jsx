@@ -33,25 +33,32 @@ export default function Users() {
   const addUser = async (e) => {
     e.preventDefault()
     setSaving(true); setMsg(null)
-    const { data, error } = await adminAuthClient.auth.signUp({
-      email: form.email.trim(),
-      password: form.password,
-      options: { data: { full_name: form.full_name, role: form.role } },
-    })
-    setSaving(false)
-    if (error) {
-      setMsg({ type: 'err', text: 'تعذّر إنشاء الحساب: ' + error.message })
-      return
-    }
-    // إن كان تأكيد البريد مفعّلاً لن تُنشأ جلسة؛ الملف الشخصي يُنشأ عبر التريجر
-    if (data?.user && !data.user.confirmed_at && !data.session) {
-      setMsg({ type: 'ok', text: 'تم إنشاء الحساب. إن كان تأكيد البريد مفعّلاً في Supabase فسيحتاج المستخدم لتأكيده أولاً.' })
-    } else {
+    const payload = { email: form.email.trim(), password: form.password, full_name: form.full_name, role: form.role }
+
+    // المسار الآمن: Edge Function (بعد نشرها + إيقاف التسجيل العام)
+    try {
+      const { data, error } = await supabase.functions.invoke('create-user', { body: payload })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      setSaving(false)
       setMsg({ type: 'ok', text: 'تم إنشاء الحساب بنجاح.' })
+      setForm(empty); setTimeout(load, 600)
+      return
+    } catch (fnErr) {
+      // تراجع مؤقت: الطريقة القديمة (تعمل ما دام التسجيل العام مفعّلاً)
+      const { error: sErr } = await adminAuthClient.auth.signUp({
+        email: payload.email, password: payload.password,
+        options: { data: { full_name: payload.full_name, role: payload.role } },
+      })
+      await adminAuthClient.auth.signOut()
+      setSaving(false)
+      if (sErr) {
+        setMsg({ type: 'err', text: 'تعذّر إنشاء الحساب: ' + sErr.message })
+        return
+      }
+      setMsg({ type: 'ok', text: 'تم إنشاء الحساب (يمكنك ضبط الدور من القائمة). للأمان الكامل انشر دالة create-user وأوقف التسجيل العام.' })
+      setForm(empty); setTimeout(load, 800)
     }
-    await adminAuthClient.auth.signOut()
-    setForm(empty)
-    setTimeout(load, 800)
   }
 
   return (
