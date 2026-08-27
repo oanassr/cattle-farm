@@ -3,7 +3,7 @@ export default function SetupNotice() {
     <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', padding: 20 }}>
       <div className="card card-pad fade-in" style={{ maxWidth: 560 }}>
         <div style={{ fontSize: 46 }}>🐄</div>
-        <h1 style={{ fontSize: 24, margin: '10px 0' }}>مرحباً بك في «مزرعتي»</h1>
+        <h1 style={{ fontSize: 24, margin: '10px 0' }}>مرحباً بك في «مزرعة وثيج»</h1>
         <p className="muted" style={{ marginBottom: 16 }}>
           لتشغيل النظام، اربطه بمشروع Supabase الخاص بك:
         </p>

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { PageHead, StatCard, EmptyState, Modal, Loader } from '../components/ui'
-import { fmtRiyal, fmtDate, todayISO, ROLES } from '../lib/format'
+import { fmtRiyal, fmtDate, fmtDateHijri, todayISO, ROLES } from '../lib/format'
 
 const TYPES = { advance: 'سلفة (من المالك)', settlement: 'تسوية / إرجاع' }
 const emptyForm = { person_id: '', amount: '', type: 'advance', date: todayISO(), note: '' }
@@ -186,6 +186,7 @@ export default function Advances() {
                 <label>التاريخ</label>
                 <input className="input" type="date" required dir="ltr"
                   value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+                <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>📅 {fmtDateHijri(form.date)}</div>
               </div>
             </div>
             <div className="field">

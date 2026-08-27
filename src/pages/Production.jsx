@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { PageHead, StatCard, EmptyState, Modal, Loader } from '../components/ui'
-import { fmtNum, fmtDate, todayISO } from '../lib/format'
+import { fmtNum, fmtDate, fmtDateHijri, todayISO } from '../lib/format'
 import { loadProducts, loadStockMap } from '../lib/catalog'
 
 const empty = { product_id: '', date: todayISO(), quantity: '', packaging_id: '', packaging_qty: '', note: '' }
@@ -175,6 +175,7 @@ export default function Production() {
                 <label>التاريخ</label>
                 <input className="input" type="date" required dir="ltr"
                   value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+                <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>📅 {fmtDateHijri(form.date)}</div>
               </div>
             </div>
 

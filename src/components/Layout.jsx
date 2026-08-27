@@ -31,7 +31,7 @@ export default function Layout() {
       <header className="topbar">
         <div className="brand">
           <span className="logo">🐄</span>
-          <span>مزرعتي<small>إدارة مزرعة الأبقار</small></span>
+          <span>مزرعة وثيج<small>إدارة مزرعة الأبقار</small></span>
         </div>
         <div className="user-chip">
           <div className="who">

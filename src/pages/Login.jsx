@@ -33,7 +33,7 @@ export default function Login() {
       <div className="card fade-in" style={{ width: '100%', maxWidth: 400, overflow: 'hidden' }}>
         <div style={{ background: 'var(--green-700)', color: '#fff', padding: '30px 26px', textAlign: 'center' }}>
           <div style={{ fontSize: 52 }}>🐄</div>
-          <h1 style={{ fontSize: 24, marginTop: 6 }}>مزرعتي</h1>
+          <h1 style={{ fontSize: 24, marginTop: 6 }}>مزرعة وثيج</h1>
           <p style={{ opacity: .85, fontSize: 14 }}>نظام إدارة منصرفات وإيرادات المزرعة</p>
         </div>
 

@@ -32,6 +32,14 @@ export const fmtDate = (d) =>
 export const fmtDateShort = (d) =>
   new Intl.DateTimeFormat('ar-SA', { month: 'short', day: 'numeric' }).format(new Date(d))
 
+// التاريخ الهجري (أم القرى)
+export const fmtDateHijri = (d) => {
+  try {
+    return new Intl.DateTimeFormat('ar-SA-u-ca-islamic-umalqura',
+      { year: 'numeric', month: 'long', day: 'numeric' }).format(new Date(d)) + ' هـ'
+  } catch { return '' }
+}
+
 export const todayISO = () => new Date().toISOString().slice(0, 10)
 
 export const monthName = (m) =>

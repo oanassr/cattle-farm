@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { PageHead, StatCard, Loader, EmptyState } from '../components/ui'
-import { fmtRiyal, fmtNum, fmtMoney, monthName, CHART_COLORS } from '../lib/format'
+import { fmtRiyal, fmtNum, fmtMoney, fmtDate, monthName, CHART_COLORS } from '../lib/format'
 import {
   ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   PieChart, Pie, Cell,
@@ -23,19 +23,31 @@ export default function Reports() {
   const load = useCallback(async () => {
     setLoading(true)
     const { from, to } = range
-    const [exp, rev, milk] = await Promise.all([
-      supabase.from('expenses').select('amount, date, expense_categories(name, icon)').gte('date', from).lte('date', to),
+    const [exp, rev, prodQ] = await Promise.all([
+      supabase.from('expenses').select('amount, date, note, payment_method, expense_categories(name, icon)').gte('date', from).lte('date', to),
       supabase.from('revenues').select('amount, date, products:product_id(name, icon), revenue_categories(name, icon)').gte('date', from).lte('date', to),
-      supabase.from('production').select('quantity, date, products:product_id(name)').gte('date', from).lte('date', to),
+      supabase.from('production').select('quantity, date, products:product_id(name, icon, unit)').gte('date', from).lte('date', to),
     ])
-    const E = exp.data || [], R = rev.data || [], M = milk.data || []
+    const E = exp.data || [], R = rev.data || [], M = prodQ.data || []
 
     const totalExp = E.reduce((s, r) => s + Number(r.amount), 0)
     const totalRev = R.reduce((s, r) => s + Number(r.amount), 0)
-    const totalMilk = M.filter((r) => r.products?.name === 'حليب').reduce((s, r) => s + Number(r.quantity), 0)
+
+    // إنتاج كل المنتجات + مكافئ «علبة اللبن» (كل علبة سمن/زبدة = 10 علب لبن)
+    const EQUIV = { 'لبن': 1, 'سمن': 10, 'زبدة': 10 }
+    const prodMap = {}
+    M.forEach((r) => {
+      const n = r.products?.name || '—'
+      prodMap[n] = prodMap[n] || { name: n, icon: r.products?.icon || '', unit: r.products?.unit || '', qty: 0 }
+      prodMap[n].qty += Number(r.quantity)
+    })
+    const prodByProduct = Object.values(prodMap).sort((a, b) => b.qty - a.qty)
+    const totalMilk = prodMap['حليب']?.qty || 0
+    const totalLabanEquiv = M.reduce((s, r) => s + Number(r.quantity) * (EQUIV[r.products?.name] ?? 0), 0)
+    const costPerCan = totalLabanEquiv ? totalExp / totalLabanEquiv : 0
+
     const net = totalRev - totalExp
     const margin = totalRev ? (net / totalRev) * 100 : 0
-    const costPerLiter = totalMilk ? totalExp / totalMilk : 0
 
     // اتجاه شهري
     const months = {}
@@ -70,9 +82,15 @@ export default function Reports() {
     })
     const revByCat = Object.values(revGroups).sort((a, b) => b.value - a.value)
 
+    // تفاصيل المنصرفات بأوصافها (تظهر في التقرير وعند الطباعة)
+    const expDetail = E.map((r) => ({
+      date: r.date, cat: r.expense_categories?.name || 'غير مصنّف', icon: r.expense_categories?.icon || '',
+      note: r.note || '', amount: Number(r.amount),
+    })).sort((a, b) => b.date.localeCompare(a.date))
+
     setRep({
-      totalExp, totalRev, totalMilk, net, margin, costPerLiter,
-      trend, expByCat, revByCat, expCount: E.length, revCount: R.length,
+      totalExp, totalRev, totalMilk, net, margin, costPerCan, totalLabanEquiv,
+      prodByProduct, expDetail, trend, expByCat, revByCat, expCount: E.length, revCount: R.length,
     })
     setLoading(false)
   }, [range])
@@ -90,14 +108,20 @@ export default function Reports() {
       ['إجمالي المنصرفات', fmtMoney(rep.totalExp)],
       ['صافي الربح', fmtMoney(rep.net)],
       ['هامش الربح %', fmtNum(rep.margin)],
-      ['إنتاج الحليب (لتر)', fmtMoney(rep.totalMilk)],
-      ['تكلفة اللتر', fmtMoney(rep.costPerLiter)],
+      ['الإنتاج بمكافئ علبة اللبن', fmtMoney(rep.totalLabanEquiv)],
+      ['تكلفة العلبة (تقديري)', fmtMoney(rep.costPerCan)],
+      [],
+      ['إنتاج المنتجات', 'الكمية', 'الوحدة'],
+      ...rep.prodByProduct.map((p) => [p.name, fmtMoney(p.qty), p.unit]),
       [],
       ['المنصرفات حسب الفئة'],
       ...rep.expByCat.map((c) => [c.name, fmtMoney(c.value)]),
       [],
-      ['الإيرادات حسب الفئة'],
+      ['الإيرادات حسب الصنف'],
       ...rep.revByCat.map((c) => [c.name, fmtMoney(c.value)]),
+      [],
+      ['تفاصيل المنصرفات', 'التاريخ', 'الفئة', 'الوصف', 'المبلغ'],
+      ...rep.expDetail.map((r) => ['', r.date, r.cat, r.note, fmtMoney(r.amount)]),
     ]
     const csv = '﻿' + lines.map((l) => l.join(',')).join('\n')
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
@@ -143,8 +167,8 @@ export default function Reports() {
             <StatCard icon="🧾" label="إجمالي المنصرفات" value={rep.totalExp} tone="red" sub={`${rep.expCount} عملية`} />
             <StatCard icon={rep.net >= 0 ? '📈' : '📉'} label="صافي الربح" value={rep.net} tone={rep.net >= 0 ? 'green' : 'red'} />
             <StatCard icon="🎯" label="هامش الربح" value={`${fmtNum(rep.margin)}%`} tone={rep.margin >= 0 ? 'green' : 'red'} isMoney={false} />
-            <StatCard icon="🥛" label="إنتاج الحليب" value={`${fmtNum(rep.totalMilk)} لتر`} tone="blue" isMoney={false} />
-            <StatCard icon="⚖️" label="تكلفة اللتر (تقديري)" value={rep.costPerLiter} tone="amber" sub="إجمالي المنصرفات ÷ الحليب" />
+            <StatCard icon="🧴" label="الإنتاج (مكافئ علبة لبن)" value={`${fmtNum(rep.totalLabanEquiv)} علبة`} tone="blue" isMoney={false} sub="سمن/زبدة = 10 علب لبن" />
+            <StatCard icon="⚖️" label="تكلفة العلبة (تقديري)" value={rep.costPerCan} tone="amber" sub="المنصرفات ÷ مكافئ اللبن" />
           </div>
 
           {/* اتجاه الأرباح */}
@@ -170,7 +194,50 @@ export default function Reports() {
           {/* الفطائر */}
           <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', marginBottom: 18 }}>
             <CategoryPie title="🧾 توزيع المنصرفات حسب الفئة" data={rep.expByCat} total={rep.totalExp} />
-            <CategoryPie title="💰 توزيع الإيرادات حسب الفئة" data={rep.revByCat} total={rep.totalRev} />
+            <CategoryPie title="💰 توزيع الإيرادات حسب الصنف" data={rep.revByCat} total={rep.totalRev} />
+          </div>
+
+          {/* إنتاج المنتجات */}
+          <div className="card card-pad" style={{ marginBottom: 18 }}>
+            <h3 className="rep-h">🧀 إنتاج المنتجات في الفترة</h3>
+            {rep.prodByProduct.length === 0 ? <EmptyState icon="🧀" title="لا يوجد إنتاج مُسجّل" /> : (
+              <div className="table-wrap">
+                <table className="data">
+                  <thead><tr><th>المنتج</th><th>الكمية المنتَجة</th><th>الوحدة</th></tr></thead>
+                  <tbody>
+                    {rep.prodByProduct.map((p) => (
+                      <tr key={p.name}>
+                        <td style={{ fontWeight: 600 }}>{p.icon} {p.name}</td>
+                        <td className="mono" style={{ fontWeight: 700 }}>{fmtNum(p.qty)}</td>
+                        <td className="muted">{p.unit}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* تفاصيل المنصرفات بأوصافها */}
+          <div className="card card-pad" style={{ marginBottom: 18 }}>
+            <h3 className="rep-h">🧾 تفاصيل المنصرفات</h3>
+            {rep.expDetail.length === 0 ? <EmptyState icon="🧾" title="لا توجد منصرفات في الفترة" /> : (
+              <div className="table-wrap">
+                <table className="data">
+                  <thead><tr><th>التاريخ</th><th>الفئة</th><th>الوصف</th><th>المبلغ</th></tr></thead>
+                  <tbody>
+                    {rep.expDetail.map((r, i) => (
+                      <tr key={i}>
+                        <td className="mono">{fmtDate(r.date)}</td>
+                        <td>{r.icon} {r.cat}</td>
+                        <td className="muted">{r.note || '—'}</td>
+                        <td className="mono text-red" style={{ fontWeight: 700 }}>{fmtRiyal(r.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

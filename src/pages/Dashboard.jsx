@@ -27,10 +27,11 @@ export default function Dashboard() {
       setLoading(true)
       const from = iso(monthStart(5))          // آخر 6 أشهر
       const monthFrom = iso(monthStart(0))
-      const [{ data: exp }, { data: rev }, { data: prod }, products, stockMap] = await Promise.all([
+      const [{ data: exp }, { data: rev }, { data: prod }, { data: adv }, products, stockMap] = await Promise.all([
         supabase.from('expenses').select('amount, date').gte('date', from),
         supabase.from('revenues').select('amount, date').gte('date', from),
         supabase.from('production').select('quantity, date, products:product_id(name)').gte('date', monthFrom),
+        supabase.from('advances').select('amount, type, date').eq('type', 'advance').gte('date', monthFrom),
         loadProducts(),
         loadStockMap(),
       ])
@@ -48,9 +49,12 @@ export default function Dashboard() {
       const monthKey = monthFrom.slice(0, 7)
       const mRev = (rev || []).filter((r) => r.date.slice(0, 7) === monthKey).reduce((s, r) => s + Number(r.amount), 0)
       const mExp = (exp || []).filter((r) => r.date.slice(0, 7) === monthKey).reduce((s, r) => s + Number(r.amount), 0)
-      const mMilk = (prod || [])
-        .filter((r) => r.products?.name === 'حليب')
+      const prodSum = (names) => (prod || [])
+        .filter((r) => names.includes(r.products?.name))
         .reduce((s, r) => s + Number(r.quantity), 0)
+      const mLaban = prodSum(['لبن'])
+      const mSamnZubda = prodSum(['سمن', 'زبدة'])
+      const mAdvances = (adv || []).reduce((s, r) => s + Number(r.amount), 0)
 
       // مخزون المنتجات المتتبَّعة
       const stockRows = (products || [])
@@ -59,7 +63,7 @@ export default function Dashboard() {
 
       setData({
         chart: Object.values(buckets),
-        mRev, mExp, mNet: mRev - mExp, mMilk, stockRows,
+        mRev, mExp, mNet: mRev - mExp, mLaban, mSamnZubda, mAdvances, stockRows,
       })
       setLoading(false)
     })()
@@ -80,7 +84,9 @@ export default function Dashboard() {
         <StatCard icon={net >= 0 ? '📈' : '📉'} label="صافي الربح"
           value={net} tone={net >= 0 ? 'green' : 'red'}
           sub={net >= 0 ? 'المزرعة رابحة هذا الشهر' : 'المنصرفات تجاوزت الإيرادات'} />
-        <StatCard icon="🥛" label="إنتاج الحليب" value={`${fmtNum(data.mMilk)} لتر`} tone="blue" isMoney={false} />
+        <StatCard icon="🥛" label="إنتاج اللبن" value={`${fmtNum(data.mLaban)} لتر`} tone="blue" isMoney={false} />
+        <StatCard icon="🧈" label="إنتاج السمن والزبدة" value={`${fmtNum(data.mSamnZubda)} علبة`} tone="amber" isMoney={false} />
+        <StatCard icon="💵" label="السلفة المدفوعة هذا الشهر" value={data.mAdvances} tone="amber" sub="المبالغ المدفوعة كسلف" />
       </div>
 
       {data.stockRows.length > 0 && (

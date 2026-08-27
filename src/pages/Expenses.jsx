@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { PageHead, StatCard, EmptyState, Modal, Loader } from '../components/ui'
-import { fmtRiyal, fmtDate, fmtNum, todayISO, PAYMENT_METHODS } from '../lib/format'
+import { fmtRiyal, fmtDate, fmtNum, fmtDateHijri, todayISO, PAYMENT_METHODS } from '../lib/format'
 import { loadProducts, loadUnits } from '../lib/catalog'
 
 const emptyForm = {
@@ -173,6 +173,7 @@ export default function Expenses() {
                 <label>التاريخ</label>
                 <input className="input" type="date" required dir="ltr"
                   value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+                <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>📅 {fmtDateHijri(form.date)}</div>
               </div>
             </div>
             <div className="row row-wrap" style={{ gap: 12 }}>
