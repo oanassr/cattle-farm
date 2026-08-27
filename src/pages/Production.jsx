@@ -39,6 +39,23 @@ export default function Production() {
   const trackables = products.filter((p) => p.track_stock)
   const selected = products.find((p) => p.id === form.product_id)
 
+  // اختيار منتج له تعبئة افتراضية → خصم تلقائي بعدد المنتَج
+  const onPickProduct = (id) => {
+    const p = products.find((x) => x.id === id)
+    setForm((f) => ({
+      ...f, product_id: id,
+      packaging_id: p?.packaging_id || (f.packaging_id || ''),
+      packaging_qty: p?.packaging_id && f.quantity !== '' ? f.quantity : f.packaging_qty,
+    }))
+  }
+  const onQty = (v) => {
+    setForm((f) => {
+      const sel = products.find((x) => x.id === f.product_id)
+      const autoLinked = sel?.packaging_id && f.packaging_id === sel.packaging_id
+      return { ...f, quantity: v, packaging_qty: autoLinked ? v : f.packaging_qty }
+    })
+  }
+
   const openAdd = () => { setForm({ ...empty }); setEditId(null); setModal(true) }
   const openEdit = (r) => {
     setForm({
@@ -160,7 +177,7 @@ export default function Production() {
             <div className="field">
               <label>المنتج</label>
               <select className="select" required value={form.product_id}
-                onChange={(e) => setForm({ ...form, product_id: e.target.value })}>
+                onChange={(e) => onPickProduct(e.target.value)}>
                 <option value="">— اختر المنتج —</option>
                 {producibles.map((p) => <option key={p.id} value={p.id}>{p.icon} {p.name} ({p.unit || 'بلا وحدة'})</option>)}
               </select>
@@ -169,7 +186,7 @@ export default function Production() {
               <div className="field" style={{ flex: 1, minWidth: 150 }}>
                 <label>الكمية المنتَجة {selected?.unit ? `(${selected.unit})` : ''}</label>
                 <input className="input" type="number" min="0" step="0.01" required dir="ltr"
-                  value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
+                  value={form.quantity} onChange={(e) => onQty(e.target.value)} />
               </div>
               <div className="field" style={{ flex: 1, minWidth: 150 }}>
                 <label>التاريخ</label>

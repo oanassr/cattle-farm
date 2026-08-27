@@ -7,7 +7,8 @@ export const ROLES = {
 }
 
 export const PAYMENT_METHODS = {
-  cash:   'نقدي',
+  cash:   'كاش',
+  card:   'شبكة',
   bank:   'تحويل بنكي',
   credit: 'آجل',
 }

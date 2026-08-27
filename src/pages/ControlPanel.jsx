@@ -13,7 +13,7 @@ const TABS = [
 
 const emptyProduct = {
   name: '', icon: '📦', kind: 'product', unit: '', sale_price: '',
-  opening_qty: '', opening_date: '', is_active: true, sort_order: 0,
+  opening_qty: '', opening_date: '', is_active: true, sort_order: 0, packaging_id: '',
 }
 const emptyCat = { name: '', icon: '📦', sort_order: 0 }
 const emptyUnit = { name: '', sort_order: 0 }
@@ -65,6 +65,7 @@ function ProductsTab() {
       name: r.name, icon: r.icon || '📦', kind: r.kind, unit: r.unit || '',
       sale_price: r.sale_price ?? '', opening_qty: r.opening_qty ?? '',
       opening_date: r.opening_date || '', is_active: r.is_active, sort_order: r.sort_order || 0,
+      packaging_id: r.packaging_id || '',
     })
     setEditId(r.id); setModal(true)
   }
@@ -79,6 +80,7 @@ function ProductsTab() {
       opening_qty: form.opening_qty === '' ? 0 : Number(form.opening_qty),
       opening_date: form.opening_date || null,
       is_active: form.is_active, sort_order: Number(form.sort_order) || 0,
+      packaging_id: form.packaging_id || null,
     }
     let error
     if (editId) ({ error } = await supabase.from('products').update(payload).eq('id', editId))
@@ -213,6 +215,18 @@ function ProductsTab() {
                   onChange={(e) => setForm({ ...form, opening_date: e.target.value })} />
               </div>
             </div>
+            {form.kind === 'product' && (
+              <div className="field">
+                <label>التعبئة الافتراضية (تُخصم تلقائياً عند الإنتاج)</label>
+                <select className="select" value={form.packaging_id}
+                  onChange={(e) => setForm({ ...form, packaging_id: e.target.value })}>
+                  <option value="">— بلا خصم تلقائي —</option>
+                  {rows.filter((r) => r.kind === 'packaging').map((p) => (
+                    <option key={p.id} value={p.id}>{p.icon} {p.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <label className="row center" style={{ gap: 8, cursor: 'pointer', marginBottom: 4 }}>
               <input type="checkbox" checked={form.is_active}
                 onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />
