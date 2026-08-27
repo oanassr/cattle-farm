@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { PageHead, StatCard, EmptyState, Modal, Loader } from '../components/ui'
-import { fmtRiyal, fmtDate, fmtNum, fmtDateHijri, todayISO, PAYMENT_METHODS } from '../lib/format'
+import DateField from '../components/DateField'
+import { fmtRiyal, fmtDate, fmtNum, todayISO, PAYMENT_METHODS } from '../lib/format'
 import { loadProducts, loadStockMap } from '../lib/catalog'
 
 const emptyForm = {
@@ -211,12 +212,7 @@ export default function Revenues() {
                 <input className="input" type="number" min="0" step="0.01" required dir="ltr"
                   value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
               </div>
-              <div className="field" style={{ flex: 1, minWidth: 120 }}>
-                <label>التاريخ</label>
-                <input className="input" type="date" required dir="ltr"
-                  value={form.date} onChange={(e) => onDate(e.target.value)} />
-                <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>📅 {fmtDateHijri(form.date)}</div>
-              </div>
+              <DateField value={form.date} onChange={onDate} />
             </div>
             <div className="row row-wrap" style={{ gap: 12 }}>
               <div className="field" style={{ flex: 1, minWidth: 140 }}>

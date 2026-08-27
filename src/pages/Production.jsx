@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { PageHead, StatCard, EmptyState, Modal, Loader } from '../components/ui'
-import { fmtNum, fmtDate, fmtDateHijri, todayISO } from '../lib/format'
+import DateField from '../components/DateField'
+import { fmtNum, fmtDate, todayISO } from '../lib/format'
 import { loadProducts, loadStockMap } from '../lib/catalog'
 
 const empty = { product_id: '', date: todayISO(), quantity: '', packaging_id: '', packaging_qty: '', note: '' }
@@ -188,12 +189,7 @@ export default function Production() {
                 <input className="input" type="number" min="0" step="0.01" required dir="ltr"
                   value={form.quantity} onChange={(e) => onQty(e.target.value)} />
               </div>
-              <div className="field" style={{ flex: 1, minWidth: 150 }}>
-                <label>التاريخ</label>
-                <input className="input" type="date" required dir="ltr"
-                  value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
-                <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>📅 {fmtDateHijri(form.date)}</div>
-              </div>
+              <DateField value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
             </div>
 
             {packagings.length > 0 && (

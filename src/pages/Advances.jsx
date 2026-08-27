@@ -2,7 +2,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { PageHead, StatCard, EmptyState, Modal, Loader } from '../components/ui'
-import { fmtRiyal, fmtDate, fmtDateHijri, todayISO, ROLES } from '../lib/format'
+import DateField from '../components/DateField'
+import { fmtRiyal, fmtDate, todayISO, ROLES } from '../lib/format'
 
 const TYPES = { advance: 'سلفة (من المالك)', settlement: 'تسوية / إرجاع' }
 const emptyForm = { person_id: '', amount: '', type: 'advance', date: todayISO(), note: '' }
@@ -182,12 +183,7 @@ export default function Advances() {
                 <input className="input" type="number" min="0" step="0.01" required dir="ltr"
                   value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} />
               </div>
-              <div className="field" style={{ flex: 1, minWidth: 140 }}>
-                <label>التاريخ</label>
-                <input className="input" type="date" required dir="ltr"
-                  value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
-                <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>📅 {fmtDateHijri(form.date)}</div>
-              </div>
+              <DateField value={form.date} onChange={(v) => setForm({ ...form, date: v })} />
             </div>
             <div className="field">
               <label>ملاحظة (اختياري)</label>

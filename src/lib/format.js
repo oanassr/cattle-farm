@@ -41,6 +41,34 @@ export const fmtDateHijri = (d) => {
   } catch { return '' }
 }
 
+// أشهر السنة الهجرية
+export const HIJRI_MONTHS = [
+  'محرم', 'صفر', 'ربيع الأول', 'ربيع الآخر', 'جمادى الأولى', 'جمادى الآخرة',
+  'رجب', 'شعبان', 'رمضان', 'شوال', 'ذو القعدة', 'ذو الحجة',
+]
+
+// تحويل ميلادي ISO → مكوّنات هجرية {y,m,d}
+const _hParts = new Intl.DateTimeFormat('en-US-u-ca-islamic-umalqura-nu-latn',
+  { year: 'numeric', month: 'numeric', day: 'numeric' })
+export const gregToHijri = (iso) => {
+  try {
+    const p = _hParts.formatToParts(new Date(iso))
+    const g = (t) => Number(p.find((x) => x.type === t)?.value)
+    return { y: g('year'), m: g('month'), d: g('day') }
+  } catch { return null }
+}
+
+// تحويل هجري (y,m,d) → ميلادي ISO (بحث حول تقدير أولي)
+export const hijriToISO = (hy, hm, hd) => {
+  const approx = Date.UTC(622, 6, 19) + Math.round((hy - 1) * 354.367 + (hm - 1) * 29.53 + (hd - 1)) * 86400000
+  for (let off = -45; off <= 45; off++) {
+    const dt = new Date(approx + off * 86400000)
+    const p = gregToHijri(dt.toISOString())
+    if (p && p.y === hy && p.m === hm && p.d === hd) return dt.toISOString().slice(0, 10)
+  }
+  return new Date(approx).toISOString().slice(0, 10)
+}
+
 export const todayISO = () => new Date().toISOString().slice(0, 10)
 
 export const monthName = (m) =>
