@@ -26,21 +26,25 @@ export default function Advances() {
     const start = `${month}-01`
     const end = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 1)
       .toISOString().slice(0, 10)
-    const [{ data: bal }, { data: profs }, { data: mv }] = await Promise.all([
+    const [{ data: bal }, { data: profs }, { data: mv }, { data: exp }] = await Promise.all([
       supabase.rpc('advance_balances'),
       supabase.from('profiles').select('id, full_name, role'),
-      supabase.from('advances')
-        .select('*')
-        .gte('date', start).lt('date', end).order('date', { ascending: false }),
+      supabase.from('advances').select('*').gte('date', start).lt('date', end),
+      supabase.from('expenses').select('id, date, amount, note, advance_person_id, expense_categories(name)')
+        .eq('from_advance', true).gte('date', start).lt('date', end),
     ])
     const pmap = {}
     ;(profs || []).forEach((p) => { pmap[p.id] = p })
     setPeople(pmap)
     setStaff((profs || []).filter((p) => p.role !== 'owner'))
-    // أظهر الأرصدة لغير المالك فقط (المستلمون للسلف)
     setBalances((bal || []).filter((b) => pmap[b.person_id] && pmap[b.person_id].role !== 'owner' &&
       (b.total_advance > 0 || b.total_spent > 0 || b.total_settle > 0 || b.balance !== 0)))
-    setRows(mv || [])
+    // سجل موحّد: حركات السلف اليدوية + مصروفات من السلفة
+    const movements = [
+      ...(mv || []).map((r) => ({ id: 'a' + r.id, rawId: r.id, src: 'advance', date: r.date, person_id: r.person_id, kind: r.type, amount: Number(r.amount), note: r.note })),
+      ...(exp || []).map((r) => ({ id: 'e' + r.id, src: 'expense', date: r.date, person_id: r.advance_person_id, kind: 'expense', amount: Number(r.amount), note: r.note || r.expense_categories?.name || 'مصروف' })),
+    ].sort((a, b) => b.date.localeCompare(a.date))
+    setRows(movements)
     setLoading(false)
   }, [month])
   useEffect(() => { load() }, [load])
@@ -70,8 +74,8 @@ export default function Advances() {
   return (
     <div>
       <PageHead title="💵 السلفيات" subtitle={isOwner
-        ? 'حساب السلف الممنوحة لفريق المزرعة وتسويتها'
-        : 'رصيد سلفك الحالي وحركاته'}>
+        ? 'عُهدة الفريق: كل مصروف «من السلفة» يُسجَّل تلقائياً كسلفة، وتُسوّى شهرياً'
+        : 'رصيد عُهدتك الحالي وحركاته'}>
         {isOwner && <button className="btn btn-primary" onClick={() => openGrant()}>＋ حركة سلفة</button>}
       </PageHead>
 
@@ -131,24 +135,26 @@ export default function Advances() {
                 <table className="data">
                   <thead><tr><th>التاريخ</th><th>الشخص</th><th>النوع</th><th>المبلغ</th><th>ملاحظة</th>{isOwner && <th></th>}</tr></thead>
                   <tbody>
-                    {rows.map((r) => (
-                      <tr key={r.id}>
-                        <td className="mono">{fmtDate(r.date)}</td>
-                        <td style={{ fontWeight: 600 }}>{people[r.person_id]?.full_name || '—'}</td>
-                        <td>
-                          <span className={`badge badge-${r.type === 'advance' ? 'amber' : 'green'}`}>
-                            {r.type === 'advance' ? '⬅️ سلفة' : '✅ تسوية'}
-                          </span>
-                        </td>
-                        <td className="mono" style={{ fontWeight: 700, color: r.type === 'advance' ? 'var(--earth-500)' : 'var(--green-700)' }}>
-                          {fmtRiyal(r.amount)}
-                        </td>
-                        <td className="muted">{r.note || '—'}</td>
-                        {isOwner && (
-                          <td><button className="btn btn-danger btn-sm" onClick={() => remove(r.id)}>حذف</button></td>
-                        )}
-                      </tr>
-                    ))}
+                    {rows.map((r) => {
+                      const isSettle = r.kind === 'settlement'
+                      const label = r.kind === 'settlement' ? '✅ تسوية' : r.kind === 'expense' ? '🧾 مصروف من السلفة' : '⬅️ سلفة نقدية'
+                      return (
+                        <tr key={r.id}>
+                          <td className="mono">{fmtDate(r.date)}</td>
+                          <td style={{ fontWeight: 600 }}>{people[r.person_id]?.full_name || '—'}</td>
+                          <td><span className={`badge badge-${isSettle ? 'green' : 'amber'}`}>{label}</span></td>
+                          <td className="mono" style={{ fontWeight: 700, color: isSettle ? 'var(--green-700)' : 'var(--earth-500)' }}>
+                            {isSettle ? '−' : '+'}{fmtRiyal(r.amount)}
+                          </td>
+                          <td className="muted">{r.note || '—'}</td>
+                          {isOwner && (
+                            <td>{r.src === 'advance'
+                              ? <button className="btn btn-danger btn-sm" onClick={() => remove(r.rawId)}>حذف</button>
+                              : <span className="muted" style={{ fontSize: 12 }}>من المنصرفات</span>}</td>
+                          )}
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

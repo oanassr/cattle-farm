@@ -8,13 +8,15 @@ import { loadProducts, loadUnits } from '../lib/catalog'
 
 const emptyForm = {
   category_id: '', product_id: '', amount: '', quantity: '', unit: '',
-  payment_method: 'cash', note: '', date: todayISO(), from_advance: false,
+  payment_method: 'cash', note: '', date: todayISO(), from_advance: false, advance_person_id: '',
 }
 
 export default function Expenses() {
-  const { user } = useAuth()
+  const { user, role } = useAuth()
+  const isOwner = role === 'owner'
   const [cats, setCats] = useState([])
   const [units, setUnits] = useState([])
+  const [staff, setStaff] = useState([])
   const [packagings, setPackagings] = useState([])
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
@@ -29,9 +31,10 @@ export default function Expenses() {
     const start = `${month}-01`
     const end = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 1)
       .toISOString().slice(0, 10)
-    const [{ data: c }, u, prods, { data: e }] = await Promise.all([
+    const [{ data: c }, u, prods, { data: profs }, { data: e }] = await Promise.all([
       supabase.from('expense_categories').select('*').order('sort_order'),
       loadUnits(), loadProducts(),
+      supabase.from('profiles').select('id, full_name, role'),
       supabase.from('expenses')
         .select('*, expense_categories(name, icon), products:product_id(name, icon)')
         .gte('date', start).lt('date', end)
@@ -39,6 +42,7 @@ export default function Expenses() {
     ])
     setCats(c || [])
     setUnits(u)
+    setStaff((profs || []).filter((p) => p.role !== 'owner'))
     setPackagings(prods.filter((p) => p.kind === 'packaging' && p.is_active))
     setRows(e || [])
     setLoading(false)
@@ -52,6 +56,7 @@ export default function Expenses() {
       category_id: r.category_id || '', product_id: r.product_id || '', amount: r.amount,
       quantity: r.quantity ?? '', unit: r.unit || '', payment_method: r.payment_method || 'cash',
       note: r.note || '', date: r.date, from_advance: !!r.from_advance,
+      advance_person_id: r.advance_person_id || '',
     })
     setEditId(r.id); setModal(true)
   }
@@ -75,6 +80,7 @@ export default function Expenses() {
       note: form.note || null,
       date: form.date,
       from_advance: form.from_advance,
+      advance_person_id: form.from_advance ? (form.advance_person_id || user.id) : null,
     }
     let error
     if (editId) {
@@ -213,11 +219,26 @@ export default function Expenses() {
               </div>
             )}
 
-            <label className="row center" style={{ gap: 8, cursor: 'pointer', marginBottom: 14, padding: '10px 12px', background: 'var(--earth-100)', borderRadius: 'var(--radius-sm)' }}>
-              <input type="checkbox" checked={form.from_advance}
-                onChange={(e) => setForm({ ...form, from_advance: e.target.checked })} />
-              <span style={{ fontSize: 14, fontWeight: 600 }}>💵 مدفوع من سلفتي (يُخصم من رصيد السلفة)</span>
-            </label>
+            <div style={{ marginBottom: 14, padding: 12, background: 'var(--earth-100)', borderRadius: 'var(--radius-sm)' }}>
+              <label className="row center" style={{ gap: 8, cursor: 'pointer' }}>
+                <input type="checkbox" checked={form.from_advance}
+                  onChange={(e) => setForm({ ...form, from_advance: e.target.checked })} />
+                <span style={{ fontSize: 14, fontWeight: 600 }}>💵 مدفوع من السلفة (عهدة) — يُسجَّل كسلفة على الشخص</span>
+              </label>
+              {form.from_advance && isOwner && (
+                <div className="field" style={{ margin: '10px 0 0' }}>
+                  <label>على سلفة مَن؟</label>
+                  <select className="select" required value={form.advance_person_id}
+                    onChange={(e) => setForm({ ...form, advance_person_id: e.target.value })}>
+                    <option value="">— اختر الشخص —</option>
+                    {staff.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+                  </select>
+                </div>
+              )}
+              {form.from_advance && !isOwner && (
+                <div className="muted" style={{ fontSize: 12.5, marginTop: 8 }}>سيُسجَّل على سلفتك (عهدتك) تلقائياً.</div>
+              )}
+            </div>
             <div className="field">
               <label>ملاحظة (اختياري)</label>
               <textarea className="input" value={form.note}

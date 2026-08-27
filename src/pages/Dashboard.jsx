@@ -31,7 +31,7 @@ export default function Dashboard() {
         supabase.from('expenses').select('amount, date').gte('date', from),
         supabase.from('revenues').select('amount, date').gte('date', from),
         supabase.from('production').select('quantity, date, products:product_id(name)').gte('date', monthFrom),
-        supabase.from('advances').select('amount, type, date').eq('type', 'advance').gte('date', monthFrom),
+        supabase.from('expenses').select('amount, from_advance, date').eq('from_advance', true).gte('date', monthFrom),
         loadProducts(),
         loadStockMap(),
       ])
@@ -86,7 +86,7 @@ export default function Dashboard() {
           sub={net >= 0 ? 'المزرعة رابحة هذا الشهر' : 'المنصرفات تجاوزت الإيرادات'} />
         <StatCard icon="🥛" label="إنتاج اللبن" value={`${fmtNum(data.mLaban)} لتر`} tone="blue" isMoney={false} />
         <StatCard icon="🧈" label="إنتاج السمن والزبدة" value={`${fmtNum(data.mSamnZubda)} علبة`} tone="amber" isMoney={false} />
-        <StatCard icon="💵" label="السلفة المدفوعة هذا الشهر" value={data.mAdvances} tone="amber" sub="المبالغ المدفوعة كسلف" />
+        <StatCard icon="💵" label="المدفوع من السلفة (الشهر)" value={data.mAdvances} tone="amber" sub="مصروفات العُهدة" />
       </div>
 
       {data.stockRows.length > 0 && (
