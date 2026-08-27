@@ -10,6 +10,7 @@ import Revenues from './pages/Revenues'
 import Production from './pages/Production'
 import Advances from './pages/Advances'
 import Reports from './pages/Reports'
+import Periods from './pages/Periods'
 import Users from './pages/Users'
 import ControlPanel from './pages/ControlPanel'
 
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="advances" element={<Guard roles={MG}><Advances /></Guard>} />
         <Route path="milk" element={<Navigate to="/production" replace />} />
         <Route path="reports" element={<Guard roles={MG}><Reports /></Guard>} />
+        <Route path="periods" element={<Guard roles={['owner']}><Periods /></Guard>} />
         <Route path="control" element={<Guard roles={['owner']}><ControlPanel /></Guard>} />
         <Route path="users" element={<Guard roles={['owner']}><Users /></Guard>} />
       </Route>

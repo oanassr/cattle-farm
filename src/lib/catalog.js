@@ -5,6 +5,7 @@ import { supabase } from './supabase'
 export const KINDS = {
   product:   { label: 'منتج',          color: 'green', icon: '🧀' },
   packaging: { label: 'مادة تعبئة',    color: 'amber', icon: '📦' },
+  feed:      { label: 'علف',           color: 'green', icon: '🌾' },
   other:     { label: 'بيع بلا مخزون', color: 'blue',  icon: '🏷️' },
 }
 

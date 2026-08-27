@@ -25,7 +25,7 @@ export default function Reports() {
     const { from, to } = range
     const [exp, rev, prodQ] = await Promise.all([
       supabase.from('expenses').select('amount, date, note, payment_method, expense_categories(name, icon)').gte('date', from).lte('date', to),
-      supabase.from('revenues').select('amount, date, products:product_id(name, icon), revenue_categories(name, icon)').gte('date', from).lte('date', to),
+      supabase.from('revenues').select('amount, date, quantity, unit, buyer_name, payment_method, products:product_id(name, icon, unit), revenue_categories(name, icon)').gte('date', from).lte('date', to),
       supabase.from('production').select('quantity, date, products:product_id(name, icon, unit)').gte('date', from).lte('date', to),
     ])
     const E = exp.data || [], R = rev.data || [], M = prodQ.data || []
@@ -88,9 +88,17 @@ export default function Reports() {
       note: r.note || '', amount: Number(r.amount),
     })).sort((a, b) => b.date.localeCompare(a.date))
 
+    const revDetail = R.map((r) => ({
+      date: r.date,
+      item: r.products?.name || r.revenue_categories?.name || 'غير مصنّف',
+      icon: r.products?.icon || r.revenue_categories?.icon || '',
+      qty: r.quantity, unit: r.products?.unit || r.unit || '',
+      buyer: r.buyer_name || '', amount: Number(r.amount),
+    })).sort((a, b) => b.date.localeCompare(a.date))
+
     setRep({
       totalExp, totalRev, totalMilk, net, margin, costPerCan, totalLabanEquiv,
-      prodByProduct, expDetail, trend, expByCat, revByCat, expCount: E.length, revCount: R.length,
+      prodByProduct, expDetail, revDetail, trend, expByCat, revByCat, expCount: E.length, revCount: R.length,
     })
     setLoading(false)
   }, [range])
@@ -122,6 +130,9 @@ export default function Reports() {
       [],
       ['تفاصيل المنصرفات', 'التاريخ', 'الفئة', 'الوصف', 'المبلغ'],
       ...rep.expDetail.map((r) => ['', r.date, r.cat, r.note, fmtMoney(r.amount)]),
+      [],
+      ['تفاصيل المبيعات', 'التاريخ', 'الصنف', 'الكمية', 'المشتري', 'المبلغ'],
+      ...rep.revDetail.map((r) => ['', r.date, r.item, r.qty ?? '', r.buyer, fmtMoney(r.amount)]),
     ]
     const csv = '﻿' + lines.map((l) => l.join(',')).join('\n')
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }))
@@ -232,6 +243,29 @@ export default function Reports() {
                         <td>{r.icon} {r.cat}</td>
                         <td className="muted">{r.note || '—'}</td>
                         <td className="mono text-red" style={{ fontWeight: 700 }}>{fmtRiyal(r.amount)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* تفاصيل المبيعات */}
+          <div className="card card-pad" style={{ marginBottom: 18 }}>
+            <h3 className="rep-h">💰 تفاصيل المبيعات</h3>
+            {rep.revDetail.length === 0 ? <EmptyState icon="💰" title="لا توجد مبيعات في الفترة" /> : (
+              <div className="table-wrap">
+                <table className="data">
+                  <thead><tr><th>التاريخ</th><th>الصنف</th><th>الكمية</th><th>المشتري</th><th>المبلغ</th></tr></thead>
+                  <tbody>
+                    {rep.revDetail.map((r, i) => (
+                      <tr key={i}>
+                        <td className="mono">{fmtDate(r.date)}</td>
+                        <td>{r.icon} {r.item}</td>
+                        <td className="mono muted">{r.qty ? `${fmtNum(r.qty)} ${r.unit}` : '—'}</td>
+                        <td className="muted">{r.buyer || '—'}</td>
+                        <td className="mono text-green" style={{ fontWeight: 700 }}>{fmtRiyal(r.amount)}</td>
                       </tr>
                     ))}
                   </tbody>

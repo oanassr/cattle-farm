@@ -10,6 +10,7 @@ const NAV = [
   { to: '/advances',   label: 'السلفيات',    ic: '💵', roles: ['owner', 'manager'] },
   { to: '/production', label: 'المنتجات',    ic: '🧀', roles: ['owner', 'manager'] },
   { to: '/reports',    label: 'التقارير',    ic: '📊', roles: ['owner', 'manager'] },
+  { to: '/periods',    label: 'الفترات',     ic: '🗓️', roles: ['owner'] },
   { to: '/control',    label: 'لوحة التحكم', ic: '🛠️', roles: ['owner'] },
   { to: '/users',      label: 'المستخدمون',  ic: '👥', roles: ['owner'] },
 ]
