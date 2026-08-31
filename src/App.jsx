@@ -11,6 +11,7 @@ import Production from './pages/Production'
 import Advances from './pages/Advances'
 import Reports from './pages/Reports'
 import Periods from './pages/Periods'
+import Warehouse from './pages/Warehouse'
 import Users from './pages/Users'
 import ControlPanel from './pages/ControlPanel'
 
@@ -34,6 +35,7 @@ function Guard({ children, roles }) {
 function Home() {
   const { role } = useAuth()
   if (role === 'seller') return <Navigate to="/revenues" replace />
+  if (role === 'storekeeper') return <Navigate to="/warehouse" replace />
   return <Dashboard />
 }
 
@@ -50,6 +52,7 @@ export default function App() {
         <Route path="expenses" element={<Guard roles={MG}><Expenses /></Guard>} />
         <Route path="revenues" element={<Revenues />} />
         <Route path="production" element={<Guard roles={MG}><Production /></Guard>} />
+        <Route path="warehouse" element={<Guard roles={['owner', 'manager', 'storekeeper']}><Warehouse /></Guard>} />
         <Route path="advances" element={<Guard roles={MG}><Advances /></Guard>} />
         <Route path="milk" element={<Navigate to="/production" replace />} />
         <Route path="reports" element={<Guard roles={MG}><Reports /></Guard>} />

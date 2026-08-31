@@ -9,6 +9,7 @@ const NAV = [
   { to: '/expenses',   label: 'المنصرفات',   ic: '🧾', roles: ['owner', 'manager'] },
   { to: '/advances',   label: 'السلفيات',    ic: '💵', roles: ['owner', 'manager'] },
   { to: '/production', label: 'المنتجات',    ic: '🧀', roles: ['owner', 'manager'] },
+  { to: '/warehouse',  label: 'المخزن',      ic: '🏬', roles: ['owner', 'manager', 'storekeeper'] },
   { to: '/reports',    label: 'التقارير',    ic: '📊', roles: ['owner', 'manager'] },
   { to: '/periods',    label: 'الفترات',     ic: '🗓️', roles: ['owner'] },
   { to: '/control',    label: 'لوحة التحكم', ic: '🛠️', roles: ['owner'] },

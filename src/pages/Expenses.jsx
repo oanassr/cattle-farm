@@ -7,7 +7,7 @@ import { fmtRiyal, fmtDate, fmtNum, todayISO, PAYMENT_METHODS } from '../lib/for
 import { loadProducts, loadUnits } from '../lib/catalog'
 
 const emptyForm = {
-  category_id: '', product_id: '', amount: '', quantity: '', unit: '',
+  main_id: '', category_id: '', product_id: '', amount: '', quantity: '', unit: '',
   payment_method: 'cash', note: '', date: todayISO(), from_advance: false, advance_person_id: '',
 }
 
@@ -52,8 +52,11 @@ export default function Expenses() {
 
   const openAdd = () => { setForm({ ...emptyForm }); setEditId(null); setModal(true) }
   const openEdit = (r) => {
+    const cat = cats.find((c) => c.id === r.category_id)
     setForm({
-      category_id: r.category_id || '', product_id: r.product_id || '', amount: r.amount,
+      main_id: cat?.parent_id || cat?.id || '',
+      category_id: cat?.parent_id ? cat.id : '',
+      product_id: r.product_id || '', amount: r.amount,
       quantity: r.quantity ?? '', unit: r.unit || '', payment_method: r.payment_method || 'cash',
       note: r.note || '', date: r.date, from_advance: !!r.from_advance,
       advance_person_id: r.advance_person_id || '',
@@ -71,7 +74,7 @@ export default function Expenses() {
     e.preventDefault()
     setSaving(true)
     const payload = {
-      category_id: form.category_id || null,
+      category_id: form.category_id || form.main_id || null,
       product_id: form.product_id || null,
       amount: Number(form.amount),
       quantity: form.quantity === '' ? null : Number(form.quantity),
@@ -162,13 +165,25 @@ export default function Expenses() {
       {modal && (
         <Modal title={editId ? 'تعديل مصروف' : 'إضافة مصروف'} onClose={() => setModal(false)}>
           <form onSubmit={save}>
-            <div className="field">
-              <label>الفئة</label>
-              <select className="select" required value={form.category_id}
-                onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
-                <option value="">— اختر الفئة —</option>
-                {cats.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
-              </select>
+            <div className="row row-wrap" style={{ gap: 12 }}>
+              <div className="field" style={{ flex: 1, minWidth: 150 }}>
+                <label>الفئة الرئيسية</label>
+                <select className="select" required value={form.main_id}
+                  onChange={(e) => setForm({ ...form, main_id: e.target.value, category_id: '' })}>
+                  <option value="">— اختر —</option>
+                  {cats.filter((c) => !c.parent_id).map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                </select>
+              </div>
+              {cats.some((c) => c.parent_id === form.main_id) && (
+                <div className="field" style={{ flex: 1, minWidth: 150 }}>
+                  <label>الفئة الفرعية</label>
+                  <select className="select" value={form.category_id}
+                    onChange={(e) => setForm({ ...form, category_id: e.target.value })}>
+                    <option value="">— (اختياري) —</option>
+                    {cats.filter((c) => c.parent_id === form.main_id).map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+                  </select>
+                </div>
+              )}
             </div>
             <div className="row row-wrap" style={{ gap: 12 }}>
               <div className="field" style={{ flex: 1, minWidth: 140 }}>

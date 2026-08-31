@@ -1,9 +1,10 @@
 // أدوات تنسيق مشتركة
 
 export const ROLES = {
-  owner:   { label: 'مالك المزرعة', color: 'green' },
-  manager: { label: 'مدير المزرعة', color: 'blue' },
-  seller:  { label: 'بائع',          color: 'amber' },
+  owner:      { label: 'مالك المزرعة', color: 'green' },
+  manager:    { label: 'مدير المزرعة', color: 'blue' },
+  seller:     { label: 'بائع',          color: 'amber' },
+  storekeeper:{ label: 'أمين المخزن',  color: 'blue' },
 }
 
 export const PAYMENT_METHODS = {

@@ -82,6 +82,20 @@ export default function Reports() {
     })
     const revByCat = Object.values(revGroups).sort((a, b) => b.value - a.value)
 
+    // ربحية المنتجات (توزيع المنصرفات بنسبة الإيراد — تقديري)
+    const rp = {}
+    R.forEach((r) => {
+      const src = r.products || r.revenue_categories
+      const name = src?.name || 'غير مصنّف'
+      rp[name] = rp[name] || { name, icon: src?.icon || '', revenue: 0, qty: 0 }
+      rp[name].revenue += Number(r.amount)
+      rp[name].qty += Number(r.quantity) || 0
+    })
+    const profitability = Object.values(rp).map((p) => {
+      const allocExp = totalRev ? totalExp * (p.revenue / totalRev) : 0
+      return { ...p, allocExp, profit: p.revenue - allocExp, margin: p.revenue ? ((p.revenue - allocExp) / p.revenue) * 100 : 0 }
+    }).sort((a, b) => b.profit - a.profit)
+
     // تفاصيل المنصرفات بأوصافها (تظهر في التقرير وعند الطباعة)
     const expDetail = E.map((r) => ({
       date: r.date, cat: r.expense_categories?.name || 'غير مصنّف', icon: r.expense_categories?.icon || '',
@@ -98,7 +112,7 @@ export default function Reports() {
 
     setRep({
       totalExp, totalRev, totalMilk, net, margin, costPerCan, totalLabanEquiv,
-      prodByProduct, expDetail, revDetail, trend, expByCat, revByCat, expCount: E.length, revCount: R.length,
+      prodByProduct, expDetail, revDetail, profitability, trend, expByCat, revByCat, expCount: E.length, revCount: R.length,
     })
     setLoading(false)
   }, [range])
@@ -223,6 +237,57 @@ export default function Reports() {
                         <td className="muted">{p.unit}</td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* ربحية المنتجات */}
+          <div className="card card-pad" style={{ marginBottom: 18 }}>
+            <h3 className="rep-h">📈 ربحية المنتجات (تقديري)</h3>
+            <p className="muted" style={{ fontSize: 12.5, marginTop: -6, marginBottom: 12 }}>توزيع المنصرفات على المنتجات بنسبة إيراد كل منتج.</p>
+            {rep.profitability.length === 0 ? <EmptyState icon="📈" title="لا توجد مبيعات في الفترة" /> : (
+              <div className="table-wrap">
+                <table className="data">
+                  <thead><tr><th>المنتج</th><th>الكمية</th><th>الإيراد</th><th>تكلفة مخصّصة</th><th>الربح التقديري</th><th>الهامش</th></tr></thead>
+                  <tbody>
+                    {rep.profitability.map((p) => (
+                      <tr key={p.name}>
+                        <td style={{ fontWeight: 600 }}>{p.icon} {p.name}</td>
+                        <td className="mono muted">{p.qty ? fmtNum(p.qty) : '—'}</td>
+                        <td className="mono text-green" style={{ fontWeight: 700 }}>{fmtRiyal(p.revenue)}</td>
+                        <td className="mono text-red">{fmtRiyal(p.allocExp)}</td>
+                        <td className="mono" style={{ fontWeight: 700, color: p.profit >= 0 ? 'var(--green-700)' : 'var(--red-600)' }}>{fmtRiyal(p.profit)}</td>
+                        <td className="mono" style={{ color: p.margin >= 0 ? 'var(--green-700)' : 'var(--red-600)' }}>{fmtNum(p.margin)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* المقارنة الشهرية */}
+          <div className="card card-pad" style={{ marginBottom: 18 }}>
+            <h3 className="rep-h">📆 المقارنة الشهرية</h3>
+            {rep.trend.length === 0 ? <EmptyState icon="📆" title="لا توجد بيانات" /> : (
+              <div className="table-wrap">
+                <table className="data">
+                  <thead><tr><th>الشهر</th><th>الإيرادات</th><th>المنصرفات</th><th>صافي الربح</th><th>الهامش</th></tr></thead>
+                  <tbody>
+                    {rep.trend.map((m) => {
+                      const marg = m.إيرادات ? (m.صافي / m.إيرادات) * 100 : 0
+                      return (
+                        <tr key={m.key}>
+                          <td style={{ fontWeight: 600 }}>{m.name}</td>
+                          <td className="mono text-green">{fmtRiyal(m.إيرادات)}</td>
+                          <td className="mono text-red">{fmtRiyal(m.منصرفات)}</td>
+                          <td className="mono" style={{ fontWeight: 700, color: m.صافي >= 0 ? 'var(--green-700)' : 'var(--red-600)' }}>{fmtRiyal(m.صافي)}</td>
+                          <td className="mono" style={{ color: marg >= 0 ? 'var(--green-700)' : 'var(--red-600)' }}>{fmtNum(marg)}%</td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>

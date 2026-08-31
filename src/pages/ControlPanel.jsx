@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Fragment } from 'react'
 import { supabase } from '../lib/supabase'
 import { PageHead, EmptyState, Modal, Loader } from '../components/ui'
 import { fmtNum, fmtRiyal, fmtDate, todayISO } from '../lib/format'
@@ -13,9 +13,9 @@ const TABS = [
 
 const emptyProduct = {
   name: '', icon: '📦', kind: 'product', unit: '', sale_price: '',
-  opening_qty: '', opening_date: '', is_active: true, sort_order: 0, packaging_id: '',
+  opening_qty: '', opening_date: '', is_active: true, sort_order: 0, packaging_id: '', reorder_point: '',
 }
-const emptyCat = { name: '', icon: '📦', sort_order: 0 }
+const emptyCat = { name: '', icon: '📦', sort_order: 0, parent_id: '' }
 const emptyUnit = { name: '', sort_order: 0 }
 
 export default function ControlPanel() {
@@ -65,7 +65,7 @@ function ProductsTab() {
       name: r.name, icon: r.icon || '📦', kind: r.kind, unit: r.unit || '',
       sale_price: r.sale_price ?? '', opening_qty: r.opening_qty ?? '',
       opening_date: r.opening_date || '', is_active: r.is_active, sort_order: r.sort_order || 0,
-      packaging_id: r.packaging_id || '',
+      packaging_id: r.packaging_id || '', reorder_point: r.reorder_point ?? '',
     })
     setEditId(r.id); setModal(true)
   }
@@ -81,6 +81,7 @@ function ProductsTab() {
       opening_date: form.opening_date || null,
       is_active: form.is_active, sort_order: Number(form.sort_order) || 0,
       packaging_id: form.packaging_id || null,
+      reorder_point: form.reorder_point === '' ? 0 : Number(form.reorder_point),
     }
     let error
     if (editId) ({ error } = await supabase.from('products').update(payload).eq('id', editId))
@@ -213,6 +214,11 @@ function ProductsTab() {
                 <label>تاريخ الرصيد</label>
                 <input className="input" type="date" dir="ltr" value={form.opening_date}
                   onChange={(e) => setForm({ ...form, opening_date: e.target.value })} />
+              </div>
+              <div className="field" style={{ flex: 1, minWidth: 130 }}>
+                <label>نقطة إعادة الطلب</label>
+                <input className="input" type="number" min="0" step="0.01" dir="ltr" value={form.reorder_point}
+                  onChange={(e) => setForm({ ...form, reorder_point: e.target.value })} placeholder="0 = بلا تنبيه" />
               </div>
             </div>
             {form.kind === 'product' && (
@@ -400,12 +406,12 @@ function ExpenseCatsTab() {
   }, [])
   useEffect(() => { load() }, [load])
 
-  const openAdd = () => { setForm({ ...emptyCat, sort_order: (rows.at(-1)?.sort_order || 0) + 1 }); setEditId(null); setModal(true) }
-  const openEdit = (r) => { setForm({ name: r.name, icon: r.icon || '📦', sort_order: r.sort_order || 0 }); setEditId(r.id); setModal(true) }
+  const openAdd = (parent_id = '') => { setForm({ ...emptyCat, parent_id, sort_order: (rows.at(-1)?.sort_order || 0) + 1 }); setEditId(null); setModal(true) }
+  const openEdit = (r) => { setForm({ name: r.name, icon: r.icon || '📦', sort_order: r.sort_order || 0, parent_id: r.parent_id || '' }); setEditId(r.id); setModal(true) }
 
   const save = async (e) => {
     e.preventDefault(); setSaving(true)
-    const payload = { name: form.name.trim(), icon: form.icon || null, sort_order: Number(form.sort_order) || 0 }
+    const payload = { name: form.name.trim(), icon: form.icon || null, sort_order: Number(form.sort_order) || 0, parent_id: form.parent_id || null }
     let error
     if (editId) ({ error } = await supabase.from('expense_categories').update(payload).eq('id', editId))
     else ({ error } = await supabase.from('expense_categories').insert(payload))
@@ -432,17 +438,32 @@ function ExpenseCatsTab() {
             <table className="data">
               <thead><tr><th>#</th><th>الفئة</th><th></th></tr></thead>
               <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id}>
-                    <td className="mono muted">{r.sort_order}</td>
-                    <td style={{ fontWeight: 600 }}>{r.icon} {r.name}</td>
-                    <td>
-                      <div className="row" style={{ gap: 6 }}>
-                        <button className="btn btn-ghost btn-sm" onClick={() => openEdit(r)}>تعديل</button>
-                        <button className="btn btn-danger btn-sm" onClick={() => remove(r.id)}>حذف</button>
-                      </div>
-                    </td>
-                  </tr>
+                {rows.filter((c) => !c.parent_id).map((m) => (
+                  <Fragment key={m.id}>
+                    <tr>
+                      <td className="mono muted">{m.sort_order}</td>
+                      <td style={{ fontWeight: 700 }}>{m.icon} {m.name}</td>
+                      <td>
+                        <div className="row" style={{ gap: 6 }}>
+                          <button className="btn btn-ghost btn-sm" onClick={() => openAdd(m.id)}>＋ فرعية</button>
+                          <button className="btn btn-ghost btn-sm" onClick={() => openEdit(m)}>تعديل</button>
+                          <button className="btn btn-danger btn-sm" onClick={() => remove(m.id)}>حذف</button>
+                        </div>
+                      </td>
+                    </tr>
+                    {rows.filter((c) => c.parent_id === m.id).map((s) => (
+                      <tr key={s.id} style={{ background: 'var(--green-50)' }}>
+                        <td className="mono muted">{s.sort_order}</td>
+                        <td style={{ paddingRight: 34, color: 'var(--muted)', fontWeight: 600 }}>↳ {s.icon} {s.name}</td>
+                        <td>
+                          <div className="row" style={{ gap: 6 }}>
+                            <button className="btn btn-ghost btn-sm" onClick={() => openEdit(s)}>تعديل</button>
+                            <button className="btn btn-danger btn-sm" onClick={() => remove(s.id)}>حذف</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -450,8 +471,16 @@ function ExpenseCatsTab() {
         )}
       </div>
       {modal && (
-        <Modal title={editId ? 'تعديل فئة' : 'فئة منصرفات جديدة'} onClose={() => setModal(false)}>
+        <Modal title={editId ? 'تعديل فئة' : (form.parent_id ? 'فئة فرعية جديدة' : 'فئة منصرفات جديدة')} onClose={() => setModal(false)}>
           <form onSubmit={save}>
+            <div className="field">
+              <label>الفئة الرئيسية (اتركها فارغة لفئة رئيسية)</label>
+              <select className="select" value={form.parent_id}
+                onChange={(e) => setForm({ ...form, parent_id: e.target.value })}>
+                <option value="">— فئة رئيسية —</option>
+                {rows.filter((c) => !c.parent_id && c.id !== editId).map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+              </select>
+            </div>
             <div className="row row-wrap" style={{ gap: 12 }}>
               <div className="field" style={{ width: 90 }}>
                 <label>الأيقونة</label>
