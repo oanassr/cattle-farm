@@ -1,0 +1,91 @@
+name: بناء تطبيق أندرويد (APK)
+
+# يبني ملف APK لتطبيق «مزرعة وثيج» بتغليف واجهة الويب داخل تطبيق أندرويد
+# عبر Capacitor، ثم ينشره كملف قابل للتحميل في GitHub Release.
+#
+# التشغيل: تلقائياً عند الدفع لفرع التطوير، أو يدوياً من تبويب Actions.
+# ملاحظة: يقرأ إعدادات Supabase من أسرار المستودع SUPABASE_URL و SUPABASE_ANON_KEY
+#         (نفس الأسرار المستخدمة في workflow الإبقاء على Supabase).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [claude/mobile-app-download-link-cj5hn2]
+    paths:
+      - 'src/**'
+      - 'index.html'
+      - 'capacitor.config.json'
+      - '.github/workflows/android-apk.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: جلب الكود
+        uses: actions/checkout@v4
+
+      - name: تهيئة Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: تهيئة Java (لبناء أندرويد)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: تثبيت اعتماديات المشروع
+        run: npm install
+
+      - name: بناء واجهة الويب
+        env:
+          # Capacitor يحمّل الملفات من جذر الجهاز محلياً → المسار الأساس '/'
+          VITE_BASE: /
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: npm run build
+
+      - name: تثبيت Capacitor
+        run: npm install -D @capacitor/cli @capacitor/core @capacitor/android
+
+      - name: توليد مشروع أندرويد ومزامنته
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: بناء ملف APK
+        run: |
+          cd android
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: تجهيز ملف APK للنشر
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/apk/debug/app-debug.apk out/mazraat-watheej.apk
+
+      - name: رفع APK كأثر بناء (Artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mazraat-watheej-apk
+          path: out/mazraat-watheej.apk
+
+      - name: نشر إصدار مع رابط تحميل APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-v${{ github.run_number }}
+          name: تطبيق مزرعة وثيج — APK رقم ${{ github.run_number }}
+          files: out/mazraat-watheej.apk
+          body: |
+            ملف تثبيت تطبيق أندرويد لنظام «مزرعة وثيج».
+
+            **طريقة التثبيت:**
+            1. نزّل الملف `mazraat-watheej.apk` من الأسفل.
+            2. افتحه على جوال أندرويد.
+            3. فعّل «السماح بالتثبيت من هذا المصدر» إن طُلب منك، ثم «تثبيت».
+
+            > ملف تجريبي موقّع بمفتاح debug — قد يلزم إزالة النسخة السابقة قبل تثبيت تحديث لاحق.

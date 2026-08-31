@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# مشروع أندرويد يُولَّد آلياً عبر Capacitor في CI (لا يُرفع)
+/android
+/ios
+out/
+*.apk
+
 # Environment (secrets — لا تُرفع)
 .env
 .env.*
