@@ -41,7 +41,7 @@ export default function Expenses() {
     setCats(c || [])
     setUnits(u)
     setStaff((profs || []).filter((p) => p.role !== 'owner'))
-    setPackagings(prods.filter((p) => p.kind === 'packaging' && p.is_active))
+    setPackagings(prods.filter((p) => (p.kind === 'packaging' || p.kind === 'feed') && p.is_active))
     setRows(e || [])
     setLoading(false)
   }, [month])
@@ -217,7 +217,7 @@ export default function Expenses() {
             {packagings.length > 0 && (
               <div className="card card-pad" style={{ background: 'var(--green-50)', marginBottom: 16 }}>
                 <label style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, display: 'block' }}>
-                  📦 شراء مخزون تعبئة (اختياري) — يُضاف للكمية أعلاه إلى المخزون
+                  📦 شراء مخزون (علف / تعبئة) — تُضاف الكمية أعلاه إلى مخزون الصنف
                 </label>
                 <select className="select" value={form.product_id}
                   onChange={(e) => onPickPackaging(e.target.value)}>

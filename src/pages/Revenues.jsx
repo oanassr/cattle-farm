@@ -41,7 +41,8 @@ export default function Revenues() {
 
   useEffect(() => { load() }, [load])
 
-  const sellables = products.filter((p) => p.is_active && p.kind !== 'packaging')
+  // للبيع فقط: المنتجات وأصناف البيع بلا مخزون (استبعاد الأعلاف ومواد التعبئة)
+  const sellables = products.filter((p) => p.is_active && (p.kind === 'product' || p.kind === 'other'))
   const selected = products.find((p) => p.id === form.product_id)
 
   // السعر الفعّال للوحدة (يراعي العروض حسب التاريخ)
