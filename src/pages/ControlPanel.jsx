@@ -82,6 +82,7 @@ function ProductsTab() {
       is_active: form.is_active, sort_order: Number(form.sort_order) || 0,
       packaging_id: form.packaging_id || null,
       reorder_point: form.reorder_point === '' ? 0 : Number(form.reorder_point),
+      track_stock: form.kind !== 'other',
     }
     let error
     if (editId) ({ error } = await supabase.from('products').update(payload).eq('id', editId))
@@ -200,26 +201,34 @@ function ProductsTab() {
               </div>
             </div>
             <div className="row row-wrap" style={{ gap: 12 }}>
-              <div className="field" style={{ flex: 1, minWidth: 140 }}>
-                <label>سعر البيع الافتراضي (﷼)</label>
-                <input className="input" type="number" min="0" step="0.01" dir="ltr" value={form.sale_price}
-                  onChange={(e) => setForm({ ...form, sale_price: e.target.value })} placeholder="اختياري" />
-              </div>
-              <div className="field" style={{ flex: 1, minWidth: 130 }}>
-                <label>رصيد بداية المدة</label>
-                <input className="input" type="number" min="0" step="0.01" dir="ltr" value={form.opening_qty}
-                  onChange={(e) => setForm({ ...form, opening_qty: e.target.value })} placeholder="0" />
-              </div>
-              <div className="field" style={{ flex: 1, minWidth: 130 }}>
-                <label>تاريخ الرصيد</label>
-                <input className="input" type="date" dir="ltr" value={form.opening_date}
-                  onChange={(e) => setForm({ ...form, opening_date: e.target.value })} />
-              </div>
-              <div className="field" style={{ flex: 1, minWidth: 130 }}>
-                <label>نقطة إعادة الطلب</label>
-                <input className="input" type="number" min="0" step="0.01" dir="ltr" value={form.reorder_point}
-                  onChange={(e) => setForm({ ...form, reorder_point: e.target.value })} placeholder="0 = بلا تنبيه" />
-              </div>
+              {(form.kind === 'product' || form.kind === 'other') && (
+                <div className="field" style={{ flex: 1, minWidth: 140 }}>
+                  <label>سعر البيع الافتراضي (﷼)</label>
+                  <input className="input" type="number" min="0" step="0.01" dir="ltr" value={form.sale_price}
+                    onChange={(e) => setForm({ ...form, sale_price: e.target.value })} placeholder="اختياري" />
+                </div>
+              )}
+              {form.kind !== 'other' && (
+                <div className="field" style={{ flex: 1, minWidth: 130 }}>
+                  <label>رصيد بداية المدة</label>
+                  <input className="input" type="number" min="0" step="0.01" dir="ltr" value={form.opening_qty}
+                    onChange={(e) => setForm({ ...form, opening_qty: e.target.value })} placeholder="0" />
+                </div>
+              )}
+              {form.kind !== 'other' && (
+                <div className="field" style={{ flex: 1, minWidth: 130 }}>
+                  <label>تاريخ الرصيد</label>
+                  <input className="input" type="date" dir="ltr" value={form.opening_date}
+                    onChange={(e) => setForm({ ...form, opening_date: e.target.value })} />
+                </div>
+              )}
+              {(form.kind === 'feed' || form.kind === 'packaging') && (
+                <div className="field" style={{ flex: 1, minWidth: 130 }}>
+                  <label>نقطة إعادة الطلب</label>
+                  <input className="input" type="number" min="0" step="0.01" dir="ltr" value={form.reorder_point}
+                    onChange={(e) => setForm({ ...form, reorder_point: e.target.value })} placeholder="0 = بلا تنبيه" />
+                </div>
+              )}
             </div>
             {form.kind === 'product' && (
               <div className="field">
