@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { PageHead, StatCard, EmptyState, Modal, Loader } from '../components/ui'
 import DateField from '../components/DateField'
-import { fmtRiyal, fmtDate, todayISO, ROLES } from '../lib/format'
+import { fmtRiyal, fmtDate, todayISO, monthRange, ROLES } from '../lib/format'
 
 const TYPES = { advance: 'سلفة (من المالك)', settlement: 'تسوية / إرجاع' }
 const emptyForm = { person_id: '', amount: '', type: 'advance', date: todayISO(), note: '' }
@@ -23,9 +23,7 @@ export default function Advances() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const start = `${month}-01`
-    const end = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 1)
-      .toISOString().slice(0, 10)
+    const { start, end } = monthRange(month)
     const [{ data: bal }, { data: profs }, { data: mv }, { data: exp }] = await Promise.all([
       supabase.rpc('advance_balances'),
       supabase.from('profiles').select('id, full_name, role'),

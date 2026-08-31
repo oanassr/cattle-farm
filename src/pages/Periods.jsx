@@ -7,8 +7,8 @@ import { KINDS, loadProducts, loadStockMap } from '../lib/catalog'
 
 const monthLabel = (m) => `${monthName(Number(m.slice(5, 7)) - 1)} ${m.slice(0, 4)}`
 const nextMonth = (m) => {
-  const d = new Date(`${m}-01`); d.setMonth(d.getMonth() + 1)
-  return d.toISOString().slice(0, 7)
+  const [y, mo] = m.split('-').map(Number)
+  return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, '0')}`
 }
 
 export default function Periods() {

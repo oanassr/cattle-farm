@@ -72,6 +72,13 @@ export const hijriToISO = (hy, hm, hd) => {
 
 export const todayISO = () => new Date().toISOString().slice(0, 10)
 
+// نطاق الشهر [البداية، بداية الشهر التالي) — حساب نصّي بلا تحويل توقيت (يتجنّب خلل UTC)
+export const monthRange = (month) => {
+  const [y, m] = month.split('-').map(Number)
+  const nm = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
+  return { start: `${month}-01`, end: `${nm}-01` }
+}
+
 export const monthName = (m) =>
   ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'][m]
 

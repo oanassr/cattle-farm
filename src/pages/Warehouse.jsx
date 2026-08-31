@@ -3,13 +3,14 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { PageHead, StatCard, EmptyState, Modal, Loader } from '../components/ui'
 import DateField from '../components/DateField'
-import { fmtNum, fmtDate, todayISO } from '../lib/format'
+import { fmtNum, fmtDate, todayISO, monthRange } from '../lib/format'
 import { loadProducts, loadStockMap } from '../lib/catalog'
 
 const empty = { product_id: '', direction: 'out', qty: '', date: todayISO(), reason: '' }
 
 export default function Warehouse() {
-  const { user } = useAuth()
+  const { user, role } = useAuth()
+  const isStore = role === 'storekeeper'
   const [items, setItems] = useState([])
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
@@ -20,8 +21,7 @@ export default function Warehouse() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const start = `${month}-01`
-    const end = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 1).toISOString().slice(0, 10)
+    const { start, end } = monthRange(month)
     const [prods, stockMap, { data: adj }] = await Promise.all([
       loadProducts(), loadStockMap(),
       supabase.from('stock_adjustments')
@@ -70,7 +70,7 @@ export default function Warehouse() {
         {low && <span className="badge badge-red" style={{ marginTop: 4 }}>⚠️ أعد الشراء</span>}
         <div className="row" style={{ gap: 5, marginTop: 6 }}>
           <button className="btn btn-danger btn-sm" onClick={() => openAdd(p.id, 'out')}>صرف</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => openAdd(p.id, 'in')}>توريد</button>
+          {!isStore && <button className="btn btn-ghost btn-sm" onClick={() => openAdd(p.id, 'in')}>توريد</button>}
         </div>
       </div>
     )
@@ -158,9 +158,12 @@ export default function Warehouse() {
               <div className="seg" style={{ width: '100%' }}>
                 <button type="button" className={`seg-btn ${form.direction === 'out' ? 'active' : ''}`} style={{ flex: 1 }}
                   onClick={() => setForm({ ...form, direction: 'out' })}>⬇️ صرف من المخزن</button>
-                <button type="button" className={`seg-btn ${form.direction === 'in' ? 'active' : ''}`} style={{ flex: 1 }}
-                  onClick={() => setForm({ ...form, direction: 'in' })}>⬆️ توريد للمخزن</button>
+                {!isStore && (
+                  <button type="button" className={`seg-btn ${form.direction === 'in' ? 'active' : ''}`} style={{ flex: 1 }}
+                    onClick={() => setForm({ ...form, direction: 'in' })}>⬆️ توريد للمخزن</button>
+                )}
               </div>
+              {isStore && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>ℹ️ أمين المخزن يصرف فقط؛ التوريد لدى المدير.</div>}
             </div>
             <div className="row row-wrap" style={{ gap: 12 }}>
               <div className="field" style={{ flex: 1, minWidth: 140 }}>

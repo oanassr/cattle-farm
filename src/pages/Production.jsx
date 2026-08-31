@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { PageHead, StatCard, EmptyState, Modal, Loader } from '../components/ui'
 import DateField from '../components/DateField'
-import { fmtNum, fmtDate, todayISO } from '../lib/format'
+import { fmtNum, fmtDate, todayISO, monthRange } from '../lib/format'
 import { loadProducts, loadStockMap } from '../lib/catalog'
 
 const empty = { product_id: '', date: todayISO(), quantity: '', packaging_id: '', packaging_qty: '', note: '' }
@@ -22,9 +22,7 @@ export default function Production() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const start = `${month}-01`
-    const end = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 1)
-      .toISOString().slice(0, 10)
+    const { start, end } = monthRange(month)
     const [p, s, { data: r }] = await Promise.all([
       loadProducts(), loadStockMap(),
       supabase.from('production')

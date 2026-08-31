@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { PageHead, StatCard, EmptyState, Modal, Loader } from '../components/ui'
 import DateField from '../components/DateField'
-import { fmtRiyal, fmtDate, fmtNum, todayISO, PAYMENT_METHODS } from '../lib/format'
+import { fmtRiyal, fmtDate, fmtNum, todayISO, monthRange, PAYMENT_METHODS } from '../lib/format'
 import { loadProducts, loadUnits } from '../lib/catalog'
 
 const emptyForm = {
@@ -28,9 +28,7 @@ export default function Expenses() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const start = `${month}-01`
-    const end = new Date(new Date(start).getFullYear(), new Date(start).getMonth() + 1, 1)
-      .toISOString().slice(0, 10)
+    const { start, end } = monthRange(month)
     const [{ data: c }, u, prods, { data: profs }, { data: e }] = await Promise.all([
       supabase.from('expense_categories').select('*').order('sort_order'),
       loadUnits(), loadProducts(),
