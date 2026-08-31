@@ -26,20 +26,25 @@ export default function Periods() {
     setLoading(true)
     const start = `${month}-01`
     const end = `${nextMonth(month)}-01`
-    const [{ data: per }, { data: rev }, { data: exp }, prods, stockMap, { data: hist }] = await Promise.all([
+    const [{ data: per }, { data: rev }, { data: exp }, prods, stockMap, { data: hist }, { data: ps }] = await Promise.all([
       supabase.from('periods').select('*').eq('month', month).maybeSingle(),
       supabase.from('revenues').select('amount').gte('date', start).lt('date', end),
       supabase.from('expenses').select('amount').gte('date', start).lt('date', end),
       loadProducts(), loadStockMap(),
       supabase.from('periods').select('*').order('month', { ascending: false }),
+      supabase.from('period_stock').select('product_id, opening_qty').eq('month', month),
     ])
+    const openMap = {}
+    ;(ps || []).forEach((r) => { openMap[r.product_id] = Number(r.opening_qty) })
     setPeriod(per || null)
     setOpeningCash(per ? String(per.opening_cash) : '')
     setSums({
       rev: (rev || []).reduce((s, r) => s + Number(r.amount), 0),
       exp: (exp || []).reduce((s, r) => s + Number(r.amount), 0),
     })
-    setStock((prods || []).filter((p) => p.track_stock).map((p) => ({ ...p, stock: stockMap[p.id] ?? 0 })))
+    // رصيد بداية المدة: من لقطة الفترة إن وُجدت، وإلا رصيد الصنف الأولي (أول مرة)
+    setStock((prods || []).filter((p) => p.track_stock)
+      .map((p) => ({ ...p, stock: stockMap[p.id] ?? 0, opening: openMap[p.id] ?? Number(p.opening_qty) })))
     setHistory(hist || [])
     setLoading(false)
   }, [month])
@@ -66,7 +71,7 @@ export default function Periods() {
     await supabase.from('periods').upsert(
       { month, opening_cash: Number(openingCash || 0), status: 'closed', closed_at: new Date().toISOString(), created_by: user.id },
       { onConflict: 'month' })
-    // 2) افتح الشهر التالي برصيد الإقفال
+    // 2) افتح الشهر التالي برصيد الإقفال النقدي
     const nm = nextMonth(month)
     const { data: existing } = await supabase.from('periods').select('id, status').eq('month', nm).maybeSingle()
     if (existing) {
@@ -74,6 +79,9 @@ export default function Periods() {
     } else {
       await supabase.from('periods').insert({ month: nm, opening_cash: closing, created_by: user.id })
     }
+    // 3) رحّل مخزون الإقفال لكل صنف كرصيد افتتاحي للشهر التالي
+    const snaps = stock.map((p) => ({ month: nm, product_id: p.id, opening_qty: p.stock }))
+    if (snaps.length) await supabase.from('period_stock').upsert(snaps, { onConflict: 'month,product_id' })
     setSaving(false)
     load()
   }
@@ -135,7 +143,7 @@ export default function Periods() {
           {/* لقطة المخزون */}
           <div className="card card-pad" style={{ marginBottom: 18 }}>
             <h3 style={{ fontSize: 16, marginBottom: 4 }}>📦 المخزون الحالي</h3>
-            <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>رصيد بداية المدة يُضبط لكل صنف من «لوحة التحكم ← الأصناف».</p>
+            <p className="muted" style={{ fontSize: 13, marginBottom: 14 }}>رصيد بداية المدة يُدخَل مرة واحدة من «لوحة التحكم ← الأصناف»، ويُرحَّل تلقائياً عند إقفال الشهر إلى الشهر التالي.</p>
             {stock.length === 0 ? <EmptyState icon="📦" title="لا توجد أصناف بمخزون" /> : (
               <div className="grid" style={{ gap: 16 }}>
                 {groups.map((g) => {
@@ -148,9 +156,10 @@ export default function Periods() {
                         {items.map((p) => {
                           const low = p.stock <= 0
                           return (
-                            <div key={p.id} className={`stock-chip ${low ? 'low' : ''}`}>
+                            <div key={p.id} className={`stock-chip ${low ? 'low' : ''}`} style={{ gap: 3 }}>
                               <span className="sc-name">{p.icon} {p.name}</span>
                               <span className="sc-val mono">{fmtNum(p.stock)} <small style={{ fontSize: 12, fontWeight: 600 }}>{p.unit}</small></span>
+                              <span className="muted" style={{ fontSize: 11 }}>بداية المدة: {fmtNum(p.opening)} {p.unit}</span>
                             </div>
                           )
                         })}
