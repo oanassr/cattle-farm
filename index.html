@@ -17,6 +17,14 @@
         }
       })()
     </script>
+    <!-- التقاط عرض تثبيت التطبيق مبكراً (قد يُطلق قبل تحميل React) -->
+    <script>
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault()
+        window.__deferredInstallPrompt = e
+        window.dispatchEvent(new Event('pwa-install-available'))
+      })
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet" />

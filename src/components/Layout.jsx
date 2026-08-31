@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { ROLES } from '../lib/format'
+import InstallApp from './InstallApp'
 import './Layout.css'
 
 const NAV = [
@@ -36,6 +37,7 @@ export default function Layout() {
           <span>مزرعة وثيج<small>إدارة مزرعة الأبقار</small></span>
         </div>
         <div className="user-chip">
+          <InstallApp />
           <div className="who">
             <b>{name}</b>
             <span className={`badge badge-${roleInfo.color || 'green'}`} style={{ marginTop: 2 }}>

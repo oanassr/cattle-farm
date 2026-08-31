@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import InstallApp from '../components/InstallApp'
 
 export default function Login() {
   const { user, signIn } = useAuth()
@@ -64,6 +65,10 @@ export default function Login() {
           <p className="muted" style={{ fontSize: 13, textAlign: 'center', marginTop: 16 }}>
             الحسابات يُنشئها مالك المزرعة من صفحة المستخدمين.
           </p>
+
+          <div style={{ marginTop: 14, textAlign: 'center' }}>
+            <InstallApp block />
+          </div>
         </form>
       </div>
     </div>
