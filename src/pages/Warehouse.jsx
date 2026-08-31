@@ -9,7 +9,9 @@ import { loadProducts, loadStockMap } from '../lib/catalog'
 const empty = { product_id: '', direction: 'out', qty: '', date: todayISO(), reason: '' }
 
 export default function Warehouse() {
-  const { user } = useAuth()
+  const { user, role } = useAuth()
+  const isStorekeeper = role === 'storekeeper'  // أمين المخزن: صرف العلف فقط
+  const canSupply = !isStorekeeper              // التوريد والتعديل/الحذف للمالك/المدير
   const [items, setItems] = useState([])
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
@@ -41,12 +43,18 @@ export default function Warehouse() {
   const lowItems = items.filter((p) => Number(p.reorder_point) > 0 && p.stock <= Number(p.reorder_point))
   const selected = items.find((p) => p.id === form.product_id)
 
-  const openAdd = (product_id = '', direction = 'out') => { setForm({ ...empty, product_id, direction }); setModal(true) }
+  const openAdd = (product_id = '', direction = 'out') => {
+    // أمين المخزن يصرف فقط، فلا يُفتح النموذج على «توريد»
+    setForm({ ...empty, product_id, direction: isStorekeeper ? 'out' : direction })
+    setModal(true)
+  }
 
   const save = async (e) => {
     e.preventDefault(); setSaving(true)
+    // أمين المخزن مقيَّد بالصرف (تُفرض على الواجهة وقاعدة البيانات معاً)
+    const direction = isStorekeeper ? 'out' : form.direction
     const { error } = await supabase.from('stock_adjustments').insert({
-      product_id: form.product_id, direction: form.direction, qty: Number(form.qty),
+      product_id: form.product_id, direction, qty: Number(form.qty),
       reason: form.reason || null, date: form.date, created_by: user.id,
     })
     setSaving(false)
@@ -70,7 +78,9 @@ export default function Warehouse() {
         {low && <span className="badge badge-red" style={{ marginTop: 4 }}>⚠️ أعد الشراء</span>}
         <div className="row" style={{ gap: 5, marginTop: 6 }}>
           <button className="btn btn-danger btn-sm" onClick={() => openAdd(p.id, 'out')}>صرف</button>
-          <button className="btn btn-ghost btn-sm" onClick={() => openAdd(p.id, 'in')}>توريد</button>
+          {canSupply && (
+            <button className="btn btn-ghost btn-sm" onClick={() => openAdd(p.id, 'in')}>توريد</button>
+          )}
         </div>
       </div>
     )
@@ -78,8 +88,12 @@ export default function Warehouse() {
 
   return (
     <div>
-      <PageHead title="🏬 المخزن" subtitle="مخزون الأعلاف ومواد التعبئة: الصرف، التوريد، وتنبيه إعادة الطلب">
-        <button className="btn btn-primary" onClick={() => openAdd()}>＋ حركة مخزون</button>
+      <PageHead title="🏬 المخزن" subtitle={isStorekeeper
+        ? 'مخزون الأعلاف: صرف العلف وتنبيه إعادة الطلب'
+        : 'مخزون الأعلاف ومواد التعبئة: الصرف، التوريد، وتنبيه إعادة الطلب'}>
+        <button className="btn btn-primary" onClick={() => openAdd()}>
+          {isStorekeeper ? '⬇️ صرف علف' : '＋ حركة مخزون'}
+        </button>
       </PageHead>
 
       {loading ? <Loader /> : (
@@ -103,7 +117,7 @@ export default function Warehouse() {
               : <div className="stock-grid">{feed.map((p) => <Card key={p.id} p={p} />)}</div>}
           </div>
 
-          {packaging.length > 0 && (
+          {canSupply && packaging.length > 0 && (
             <div className="card card-pad" style={{ marginBottom: 18 }}>
               <h3 style={{ fontSize: 16, marginBottom: 12 }}>📦 مواد التعبئة</h3>
               <div className="stock-grid">{packaging.map((p) => <Card key={p.id} p={p} />)}</div>
@@ -119,7 +133,7 @@ export default function Warehouse() {
             {rows.length === 0 ? <EmptyState icon="📋" title="لا توجد حركات هذا الشهر" /> : (
               <div className="table-wrap">
                 <table className="data">
-                  <thead><tr><th>التاريخ</th><th>الصنف</th><th>الحركة</th><th>الكمية</th><th>السبب</th><th></th></tr></thead>
+                  <thead><tr><th>التاريخ</th><th>الصنف</th><th>الحركة</th><th>الكمية</th><th>السبب</th>{canSupply && <th></th>}</tr></thead>
                   <tbody>
                     {rows.map((r) => (
                       <tr key={r.id}>
@@ -131,7 +145,7 @@ export default function Warehouse() {
                           {r.direction === 'in' ? '+' : '−'}{fmtNum(r.qty)} <span className="muted" style={{ fontWeight: 400 }}>{r.products?.unit}</span>
                         </td>
                         <td className="muted">{r.reason || '—'}</td>
-                        <td><button className="btn btn-danger btn-sm" onClick={() => remove(r.id)}>حذف</button></td>
+                        {canSupply && <td><button className="btn btn-danger btn-sm" onClick={() => remove(r.id)}>حذف</button></td>}
                       </tr>
                     ))}
                   </tbody>
@@ -143,25 +157,32 @@ export default function Warehouse() {
       )}
 
       {modal && (
-        <Modal title="حركة مخزون" onClose={() => setModal(false)}>
+        <Modal title={isStorekeeper ? 'صرف علف من المخزن' : 'حركة مخزون'} onClose={() => setModal(false)}>
           <form onSubmit={save}>
             <div className="field">
               <label>الصنف</label>
               <select className="select" required value={form.product_id}
                 onChange={(e) => setForm({ ...form, product_id: e.target.value })}>
                 <option value="">— اختر الصنف —</option>
-                {items.map((p) => <option key={p.id} value={p.id}>{p.icon} {p.name} (متاح {fmtNum(p.stock)} {p.unit})</option>)}
+                {(isStorekeeper ? feed : items).map((p) => <option key={p.id} value={p.id}>{p.icon} {p.name} (متاح {fmtNum(p.stock)} {p.unit})</option>)}
               </select>
             </div>
-            <div className="field">
-              <label>نوع الحركة</label>
-              <div className="seg" style={{ width: '100%' }}>
-                <button type="button" className={`seg-btn ${form.direction === 'out' ? 'active' : ''}`} style={{ flex: 1 }}
-                  onClick={() => setForm({ ...form, direction: 'out' })}>⬇️ صرف من المخزن</button>
-                <button type="button" className={`seg-btn ${form.direction === 'in' ? 'active' : ''}`} style={{ flex: 1 }}
-                  onClick={() => setForm({ ...form, direction: 'in' })}>⬆️ توريد للمخزن</button>
+            {canSupply ? (
+              <div className="field">
+                <label>نوع الحركة</label>
+                <div className="seg" style={{ width: '100%' }}>
+                  <button type="button" className={`seg-btn ${form.direction === 'out' ? 'active' : ''}`} style={{ flex: 1 }}
+                    onClick={() => setForm({ ...form, direction: 'out' })}>⬇️ صرف من المخزن</button>
+                  <button type="button" className={`seg-btn ${form.direction === 'in' ? 'active' : ''}`} style={{ flex: 1 }}
+                    onClick={() => setForm({ ...form, direction: 'in' })}>⬆️ توريد للمخزن</button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="field">
+                <label>نوع الحركة</label>
+                <div className="badge badge-amber" style={{ display: 'inline-block' }}>⬇️ صرف من مخزون العلف</div>
+              </div>
+            )}
             <div className="row row-wrap" style={{ gap: 12 }}>
               <div className="field" style={{ flex: 1, minWidth: 140 }}>
                 <label>الكمية {selected?.unit ? `(${selected.unit})` : ''}</label>
@@ -176,7 +197,7 @@ export default function Warehouse() {
                 onChange={(e) => setForm({ ...form, reason: e.target.value })} placeholder="تغذية القطيع، توريد جديد…" />
             </div>
             <button className="btn btn-primary btn-block" disabled={saving}>
-              {saving ? <span className="spinner" /> : 'حفظ الحركة'}
+              {saving ? <span className="spinner" /> : (isStorekeeper ? 'حفظ الصرف' : 'حفظ الحركة')}
             </button>
           </form>
         </Modal>
