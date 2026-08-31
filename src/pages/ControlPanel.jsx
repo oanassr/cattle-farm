@@ -426,9 +426,12 @@ function ExpenseCatsTab() {
 
   return (
     <div>
+      <div className="card card-pad" style={{ background: 'var(--green-50)', marginBottom: 14, fontSize: 13 }}>
+        ℹ️ فئات المنصرفات للتصنيف المالي فقط. <b>مخزون العلف ونقطة إعادة الطلب ووحدته</b> تُضبط من تبويب <b>«الأصناف والمنتجات»</b> (النوع: علف).
+      </div>
       <div className="row between" style={{ marginBottom: 14 }}>
         <div />
-        <button className="btn btn-primary" onClick={openAdd}>＋ فئة جديدة</button>
+        <button className="btn btn-primary" onClick={() => openAdd()}>＋ فئة جديدة</button>
       </div>
       <div className="card">
         {loading ? <Loader /> : rows.length === 0 ? (
