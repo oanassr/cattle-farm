@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
     // 2) أنشئ المستخدم بمفتاح الخدمة (مؤكَّد فوراً)
     const { email, password, full_name, role } = await req.json()
     if (!email || !password) return json({ error: 'البريد وكلمة المرور مطلوبان' }, 400)
-    const validRole = ['owner', 'manager', 'seller'].includes(role) ? role : 'seller'
+    const validRole = ['owner', 'manager', 'seller', 'storekeeper'].includes(role) ? role : 'seller'
 
     const { data: created, error: cErr } = await admin.auth.admin.createUser({
       email, password, email_confirm: true, user_metadata: { full_name },
