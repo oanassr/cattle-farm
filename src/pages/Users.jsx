@@ -15,6 +15,19 @@ export default function Users() {
   const [form, setForm] = useState(empty)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState(null)
+  const [pwFor, setPwFor] = useState(null)
+  const [pwValue, setPwValue] = useState('')
+  const [pwSaving, setPwSaving] = useState(false)
+  const [pwMsg, setPwMsg] = useState(null)
+
+  const submitPassword = async (e) => {
+    e.preventDefault(); setPwSaving(true); setPwMsg(null)
+    const { data, error } = await supabase.functions.invoke('set-password', { body: { user_id: pwFor.id, password: pwValue } })
+    setPwSaving(false)
+    if (error || data?.error) { setPwMsg({ type: 'err', text: 'تعذّر: ' + (data?.error || error.message) }); return }
+    setPwMsg({ type: 'ok', text: 'تم تغيير كلمة المرور بنجاح ✔' })
+    setPwValue('')
+  }
 
   const load = async () => {
     setLoading(true)
@@ -75,7 +88,7 @@ export default function Users() {
         ) : (
           <div className="table-wrap">
             <table className="data">
-              <thead><tr><th>الاسم</th><th>الدور</th><th>تاريخ الإنشاء</th></tr></thead>
+              <thead><tr><th>الاسم</th><th>الدور</th><th>تاريخ الإنشاء</th><th></th></tr></thead>
               <tbody>
                 {rows.map((r) => {
                   const isMe = r.id === user.id
@@ -95,6 +108,10 @@ export default function Users() {
                         )}
                       </td>
                       <td className="mono muted">{fmtDate(r.created_at)}</td>
+                      <td>
+                        <button className="btn btn-ghost btn-sm"
+                          onClick={() => { setPwFor(r); setPwValue(''); setPwMsg(null) }}>🔑 كلمة المرور</button>
+                      </td>
                     </tr>
                   )
                 })}
@@ -143,6 +160,27 @@ export default function Users() {
               💡 لتفعيل الحسابات فوراً بدون بريد تأكيد: من لوحة Supabase ← Authentication ← Providers ← Email،
               أوقف خيار «Confirm email».
             </p>
+          </form>
+        </Modal>
+      )}
+
+      {pwFor && (
+        <Modal title={`🔑 تغيير كلمة مرور: ${pwFor.full_name || ''}`} onClose={() => setPwFor(null)}>
+          <form onSubmit={submitPassword}>
+            <div className="field">
+              <label>كلمة المرور الجديدة</label>
+              <input className="input" type="text" dir="ltr" required minLength={6} value={pwValue}
+                onChange={(e) => setPwValue(e.target.value)} placeholder="6 أحرف على الأقل" autoFocus />
+            </div>
+            {pwMsg && (
+              <div className={`badge badge-${pwMsg.type === 'ok' ? 'green' : 'red'}`}
+                style={{ width: '100%', justifyContent: 'center', padding: 10, marginBottom: 12, lineHeight: 1.5 }}>
+                {pwMsg.text}
+              </div>
+            )}
+            <button className="btn btn-primary btn-block" disabled={pwSaving}>
+              {pwSaving ? <span className="spinner" /> : 'حفظ كلمة المرور'}
+            </button>
           </form>
         </Modal>
       )}
