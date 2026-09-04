@@ -52,10 +52,15 @@ jobs:
       - name: تثبيت Capacitor
         run: npm install -D @capacitor/cli @capacitor/core @capacitor/android
 
-      - name: توليد مشروع أندرويد ومزامنته
+      - name: توليد مشروع أندرويد
+        run: npx cap add android
+
+      - name: توحيد إصدار Kotlin stdlib (تفادي تعارض الأصناف المكرّرة)
         run: |
-          npx cap add android
-          npx cap sync android
+          printf '\nconfigurations.all {\n  resolutionStrategy.eachDependency { details ->\n    if (details.requested.group == "org.jetbrains.kotlin" && details.requested.name.startsWith("kotlin-stdlib")) {\n      details.useVersion "1.8.22"\n    }\n  }\n}\n' >> android/app/build.gradle
+
+      - name: مزامنة Capacitor
+        run: npx cap sync android
 
       - name: بناء ملف APK
         run: |
